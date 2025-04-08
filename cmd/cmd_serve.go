@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/sagernet/sing-box/option"
 	"net/http"
 	"time"
 
@@ -12,20 +13,26 @@ import (
 )
 
 type ServeCmd struct {
-	serverConfig *common.ServerConfig
+	serverConfig  *common.ServerConfig
+	singboxConfig *option.Options
 }
 
 func (c ServeCmd) Run() error {
-	if !common.CheckSingboxInstalled() {
+	if !common.CheckSingBoxInstalled() {
 		return fmt.Errorf("sing-box not found in PATH")
 	}
 	var err error
-	c.serverConfig, err = common.ReadServerConfig()
+	c.serverConfig, err = common.ReadServerConfig(args.DataDir)
 	if err != nil {
 		// no config found. init
-		c.serverConfig, err = InitializeConfigs()
+		c.serverConfig, c.singboxConfig, err = InitializeConfigs()
 		if err != nil {
 			return fmt.Errorf("failed to init server: %w", err)
+		}
+	} else {
+		c.singboxConfig, err = common.ReadSingBoxServerConfig(args.DataDir)
+		if err != nil {
+			return fmt.Errorf("failed to read sing-box config: %w", err)
 		}
 	}
 
@@ -33,9 +40,10 @@ func (c ServeCmd) Run() error {
 		return fmt.Errorf("failed to start sing-box: %w", err)
 	}
 
-	printRootToken(c.serverConfig)
-
+	printRootToken(c.serverConfig, c.singboxConfig)
+	go common.CheckConnectivity(c.serverConfig.IP, c.serverConfig.Port)
 	srv := http.NewServeMux()
+	srv.Handle("GET /api/v1/health", http.HandlerFunc(c.healthCheckHandler))
 	srv.Handle("GET /api/v1/connect-config", auth.Middleware(c.serverConfig.HMACSecret, http.HandlerFunc(c.getConnectConfigHandler)))
 	srv.Handle("GET /api/v1/share-link/{name}", auth.Middleware(c.serverConfig.HMACSecret, auth.AdminOnly(http.HandlerFunc(c.getShareLinkHandler))))
 	srv.Handle("POST /api/v1/revoke/{name}", auth.Middleware(c.serverConfig.HMACSecret, auth.AdminOnly(http.HandlerFunc(c.revokeAccess))))
@@ -53,14 +61,7 @@ func (c ServeCmd) Run() error {
 }
 
 func (c ServeCmd) getConnectConfigHandler(writer http.ResponseWriter, r *http.Request) {
-	publicIP, err := getPublicIP()
-	if err != nil {
-		log.Errorf("Cannot detect server public ip: %v", err)
-		http.Error(writer, "Cannot detect server public ip", http.StatusInternalServerError)
-		return
-	}
-
-	cfg, err := common.GenerateSingboxConnectConfig(publicIP, auth.GetRequestUsername(r))
+	cfg, err := common.GenerateSingBoxConnectConfig(args.DataDir, c.serverConfig.IP, auth.GetRequestUsername(r))
 	if err != nil {
 		log.Errorf("failed to generate connect config: %v", err)
 		http.Error(writer, "failed to generate connect config", http.StatusInternalServerError)
@@ -86,11 +87,16 @@ func (c ServeCmd) getShareLinkHandler(w http.ResponseWriter, r *http.Request) {
 
 func (c ServeCmd) revokeAccess(w http.ResponseWriter, r *http.Request) {
 	username := r.PathValue("name")
-	if err := common.RevokeUser(username); err != nil {
+	if err := common.RevokeUser(args.DataDir, username); err != nil {
 		log.Errorf("failed to revoke user: %v", err)
 		http.Error(w, "failed to revoke user", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(fmt.Sprintf(`{"status": "ok"}`)))
+}
+
+func (c ServeCmd) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(`{"status": "ok"}`))
 }

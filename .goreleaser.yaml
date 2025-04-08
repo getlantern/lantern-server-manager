@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema-pro.json
+version: 2
+project_name: lantern-server-manager
+metadata:
+  maintainers:
+    - "Lantern Team <dev@getlantern.org>"
+  description: Lantern Server Manager
+  homepage: "https://github.com/getlantern/lantern-server-manager"
+  license: "GPL"
+
+builds:
+  - # we are not building using goreleaser, but using make, so here we just use the prebuilt binaries
+    main: ./cmd
+
+    goos:
+      - linux
+    goarch:
+      - amd64
+
+    binary: lantern-server-manager
+
+archives:
+  - formats: ["tar.gz"]
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  replace_existing_artifacts: true
+
+dockers:
+  - image_templates:
+      - "getlantern/lantern-server-manager:latest"
+      - "getlantern/lantern-server-manager:{{ .Tag }}"
+
+dockerhub:
+  - images:
+      - getlantern/lantern-server-manager
+    username: getlantern
+    secret_name: DOCKER_PASSWORD
+    full_description:
+      from_file:
+        path: ./README.md

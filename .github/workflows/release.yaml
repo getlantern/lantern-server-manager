@@ -1,0 +1,31 @@
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: "write"
+
+jobs:
+  release:
+    runs-on:
+      group: large-runners
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Mandatory to use the extract version from tag
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser-pro
+          version: "~> 2"
+          args: release --clean --verbose
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}

@@ -3,9 +3,11 @@ package common
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"os"
+	"path"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -16,28 +18,33 @@ import (
 )
 
 type ServerConfig struct {
+	IP          string `json:"ip"`
 	Port        int    `json:"port"`
 	AccessToken string `json:"access_token"`
 	HMACSecret  []byte `json:"hmac_secret"`
 }
 
-func (c *ServerConfig) GetNewServerURL(publicIP string) string {
-	return fmt.Sprintf("lantern://new-private-server?ip=%s&port=%d&token=%s", publicIP, c.Port, c.AccessToken)
+func (c *ServerConfig) GetNewServerURL() string {
+	return fmt.Sprintf("lantern://new-private-server?ip=%s&port=%d&token=%s", c.IP, c.Port, c.AccessToken)
 }
-func (c *ServerConfig) GetQR(publicIP string) string {
+func (c *ServerConfig) GetQR() string {
 	qrCode := bytes.NewBufferString("")
-	qrterminal.Generate(c.GetNewServerURL(publicIP), qrterminal.L, qrCode)
+	qrterminal.Generate(c.GetNewServerURL(), qrterminal.L, qrCode)
 
 	return qrCode.String()
 }
-func ReadServerConfig() (*ServerConfig, error) {
-	data, err := os.ReadFile("server.json")
+
+func ReadServerConfig(dataDir string) (*ServerConfig, error) {
+	data, err := os.ReadFile(path.Join(dataDir, "server.json"))
 	if err != nil {
 		return nil, err
 	}
 	var config ServerConfig
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil, err
+	}
+	if config.IP == "" {
+		return nil, errors.New("server ip is required")
 	}
 	if config.Port == 0 {
 		return nil, fmt.Errorf("port not set")
@@ -53,7 +60,13 @@ func ReadServerConfig() (*ServerConfig, error) {
 
 var AdminExpirationTime = time.Date(2900, 1, 1, 0, 0, 0, 0, time.UTC)
 
-func GenerateServerConfig() (*ServerConfig, error) {
+func GenerateServerConfig(dataDir string) (*ServerConfig, error) {
+	publicIP, err := GetPublicIP()
+	if err != nil {
+		log.Error("Cannot detect your public IP, please get it from your host provider")
+		publicIP = "0.0.0.0"
+	}
+
 	// generate a number that is a valid non-privileged port
 	port := rand.N(65535-1024) + 1024
 	// generate hmac secret
@@ -64,6 +77,7 @@ func GenerateServerConfig() (*ServerConfig, error) {
 		return nil, err
 	}
 	conf := &ServerConfig{
+		IP:          publicIP,
 		Port:        port,
 		AccessToken: accessToken,
 		HMACSecret:  []byte(hmacSecret),
@@ -74,5 +88,5 @@ func GenerateServerConfig() (*ServerConfig, error) {
 		return nil, err
 	}
 	log.Infof("Writing intial config to server.json")
-	return conf, os.WriteFile("server.json", data, 0600)
+	return conf, os.WriteFile(path.Join(dataDir, "server.json"), data, 0600)
 }

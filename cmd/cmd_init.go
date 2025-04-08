@@ -1,59 +1,44 @@
 package main
 
 import (
-	"github.com/getlantern/lantern-server-manager/common"
-	"io"
-	"net/http"
-	"strings"
-
 	"github.com/charmbracelet/log"
+	"github.com/sagernet/sing-box/option"
+
+	"github.com/getlantern/lantern-server-manager/common"
 )
 
 type InitCmd struct {
 }
 
-func getPublicIP() (string, error) {
-	resp, err := http.Get("https://ifconfig.io")
+func InitializeConfigs() (*common.ServerConfig, *option.Options, error) {
+	config, err := common.GenerateServerConfig(args.DataDir)
 	if err != nil {
-		return "", err
+		return nil, nil, err
 	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-	body, err := io.ReadAll(resp.Body)
+	singboxConfig, err := common.GenerateBasicSingBoxServerConfig(args.DataDir)
 	if err != nil {
-		return "", err
+		return nil, nil, err
 	}
-	return strings.TrimSpace(string(body)), nil
-}
-
-func InitializeConfigs() (*common.ServerConfig, error) {
-	config, err := common.GenerateServerConfig()
-	if err != nil {
-		return nil, err
-	}
-	if err = common.GenerateBasicSingboxServerConfig(); err != nil {
-		return nil, err
-	}
-	return config, nil
+	return config, singboxConfig, nil
 }
 
 func (c InitCmd) Run() error {
-	if config, err := InitializeConfigs(); err != nil {
+	if config, singboxConfig, err := InitializeConfigs(); err != nil {
 		return err
 	} else {
-		printRootToken(config)
+		printRootToken(config, singboxConfig)
 	}
 
 	return nil
 }
 
-func printRootToken(config *common.ServerConfig) {
-	publicIP, err := getPublicIP()
+func printRootToken(config *common.ServerConfig, singBoxConfig *option.Options) {
+	inboundOptions, err := common.GetShadowsocksInboundConfig(singBoxConfig)
 	if err != nil {
-		log.Error("Cannot detect your public IP, please get if from your host provider")
-		publicIP = "0.0.0.0"
+		log.Fatal(err)
 	}
-	log.Infof("Paste this link into Lantern VPN app:\n%s", config.GetNewServerURL(publicIP))
-	log.Printf("Or scan this QR code in Lantern VPN app:\n%s", config.GetQR(publicIP))
+
+	log.Infof("Make sure that the following ports are open: %d, %d", config.Port, inboundOptions.ListenPort)
+	log.Infof("Paste this link into Lantern VPN app:\n%s", config.GetNewServerURL())
+	log.Printf("Or scan this QR code in Lantern VPN app:\n%s", config.GetQR())
 }

@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"os"
 	"os/exec"
+	"path"
 
 	"github.com/charmbracelet/log"
 	box "github.com/sagernet/sing-box"
@@ -20,8 +21,8 @@ import (
 	"github.com/sethvargo/go-password/password"
 )
 
-func ReadSingBoxServerConfig() (*option.Options, error) {
-	data, err := os.ReadFile("sing-box-config.json")
+func ReadSingBoxServerConfig(dataDir string) (*option.Options, error) {
+	data, err := os.ReadFile(path.Join(dataDir, "sing-box-config.json"))
 	if err != nil {
 		return nil, err
 	}
@@ -34,8 +35,8 @@ func ReadSingBoxServerConfig() (*option.Options, error) {
 	return &opt, nil
 }
 
-func RevokeUser(username string) error {
-	singBoxServerConfig, err := ReadSingBoxServerConfig()
+func RevokeUser(dataDir, username string) error {
+	singBoxServerConfig, err := ReadSingBoxServerConfig(dataDir)
 	if err != nil {
 		return err
 	}
@@ -52,7 +53,7 @@ func RevokeUser(username string) error {
 			break
 		}
 	}
-	if err = WriteSingBoxServerConfig(singBoxServerConfig); err != nil {
+	if err = WriteSingBoxServerConfig(dataDir, singBoxServerConfig); err != nil {
 		return err
 	}
 
@@ -60,17 +61,25 @@ func RevokeUser(username string) error {
 	return RestartSingBox()
 }
 
-func GenerateSingboxConnectConfig(publicIP, username string) ([]byte, error) {
-	singBoxServerConfig, err := ReadSingBoxServerConfig()
-	if err != nil {
-		return nil, err
-	}
+func GetShadowsocksInboundConfig(singBoxServerConfig *option.Options) (*option.ShadowsocksInboundOptions, error) {
 	if len(singBoxServerConfig.Inbounds) == 0 {
 		return nil, fmt.Errorf("no inbounds found, invalid config")
 	}
 	inboundOptions, ok := singBoxServerConfig.Inbounds[0].Options.(*option.ShadowsocksInboundOptions)
 	if !ok {
 		return nil, fmt.Errorf("inbound is not shadowsocks")
+	}
+	return inboundOptions, nil
+}
+
+func GenerateSingBoxConnectConfig(dataDir, publicIP, username string) ([]byte, error) {
+	singBoxServerConfig, err := ReadSingBoxServerConfig(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	inboundOptions, err := GetShadowsocksInboundConfig(singBoxServerConfig)
+	if err != nil {
+		return nil, err
 	}
 	var pw string
 	if username == "admin" {
@@ -90,7 +99,7 @@ func GenerateSingboxConnectConfig(publicIP, username string) ([]byte, error) {
 			Password: pw,
 		})
 		// user now found. add the user
-		if err = WriteSingBoxServerConfig(singBoxServerConfig); err != nil {
+		if err = WriteSingBoxServerConfig(dataDir, singBoxServerConfig); err != nil {
 			return nil, err
 		}
 		// restart singbox
@@ -122,12 +131,12 @@ func GenerateSingboxConnectConfig(publicIP, username string) ([]byte, error) {
 	return badjson.MarshallObjects(opt)
 }
 
-func WriteSingBoxServerConfig(opt *option.Options) error {
+func WriteSingBoxServerConfig(dataDir string, opt *option.Options) error {
 	data, err := badjson.MarshallObjects(opt)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile("sing-box-config.json", data, 0644)
+	return os.WriteFile(path.Join(dataDir, "sing-box-config.json"), data, 0644)
 }
 
 func makeShadowsocksPassword() string {
@@ -137,7 +146,7 @@ func makeShadowsocksPassword() string {
 	return base64.StdEncoding.EncodeToString([]byte(passwordStr))
 }
 
-func GenerateBasicSingboxServerConfig() error {
+func GenerateBasicSingBoxServerConfig(dataDir string) (*option.Options, error) {
 	// generate a number that is a valid non-privileged port
 	port := rand.N(65535-1024) + 1024
 
@@ -165,10 +174,10 @@ func GenerateBasicSingboxServerConfig() error {
 		},
 	}
 	log.Infof("Writing intial vpn config to sing-box-config.json")
-	return WriteSingBoxServerConfig(&opt)
+	return &opt, WriteSingBoxServerConfig(dataDir, &opt)
 }
 
-func CheckSingboxInstalled() bool {
+func CheckSingBoxInstalled() bool {
 	_, err := exec.LookPath("sing-box")
 	return err == nil
 }

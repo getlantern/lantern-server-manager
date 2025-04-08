@@ -22,15 +22,18 @@ func (ll *LogLevel) UnmarshalText(b []byte) error {
 }
 
 var args struct {
-	LogLevel LogLevel  `arg:"-l,--log-level" help:"set log level" default:"info"`
-	Serve    *ServeCmd `arg:"subcommand:serve" help:"start the server"`
-	Init     *InitCmd  `arg:"subcommand:init" help:"generate initial configuration"`
+	LogLevel LogLevel `arg:"-l,--log-level" help:"set log level" default:"info"`
+	DataDir  string   `arg:"-d" help:"data directory" default:"./data"`
+
+	Serve *ServeCmd `arg:"subcommand:serve" help:"start the server"`
+	Init  *InitCmd  `arg:"subcommand:init" help:"generate initial configuration"`
 }
 
 func main() {
 	var err error
 	p := arg.MustParse(&args)
 	log.SetLevel(args.LogLevel.Level)
+	ensureDataDirectoryExists()
 	switch {
 	case args.Serve != nil:
 		err = args.Serve.Run()
@@ -46,5 +49,20 @@ func main() {
 			_, _ = fmt.Fprintln(os.Stderr, err)
 		}
 		os.Exit(1)
+	}
+}
+
+func ensureDataDirectoryExists() {
+	if fi, err := os.Stat(args.DataDir); err != nil {
+		if os.IsNotExist(err) {
+			err = os.MkdirAll(args.DataDir, 0755)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else if !fi.IsDir() {
+			log.Fatal("data directory is not a directory")
+		}
+	} else {
+		log.Fatal(err)
 	}
 }

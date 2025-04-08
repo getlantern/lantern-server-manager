@@ -37,3 +37,6 @@ It will allow you to easily set up a server, configure it, and allow to share ac
 - It's the only key that can be used to manage the server.
 - It's stored in the server's config file and on the phone that scanned the initial QR
 - If that key is lost, the server can no longer be managed and the only way to regain access is to delete the config file and start over.
+
+
+
