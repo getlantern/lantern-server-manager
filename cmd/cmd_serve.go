@@ -1,99 +1,44 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
-	"os/exec"
+	"time"
 
 	"github.com/charmbracelet/log"
-	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/getlantern/lantern-server-manager/auth"
+	"github.com/getlantern/lantern-server-manager/common"
 )
 
-var singBoxPath string
-
 type ServeCmd struct {
-}
-
-func restartSingBox() error {
-	// kill process
-	_ = exec.Command("pkill", "-9", "sing-box").Run()
-	// start process
-	return exec.Command(singBoxPath, "run", "--config", "sing-box-config.json").Start()
-}
-
-type ctxUserKey struct{}
-
-func authMiddleware(hmacSecret string, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check for the presence of the Authorization header
-		authHeader := r.Header.Get("Authorization")
-		var tokenStr string
-		if authHeader == "" {
-			// try getting from query
-			tokenStr = r.URL.Query().Get("token")
-		} else {
-			// Split the header into "Bearer" and the token
-			tokenStr = authHeader[len("Bearer "):]
-		}
-
-		if tokenStr == "" {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		// Check if the token is valid
-		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-			return []byte(hmacSecret), nil
-		}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
-		if err != nil {
-			log.Errorf("Error parsing token: %v", err)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		if claims, err := token.Claims.GetSubject(); err != nil {
-			log.Errorf("Error parsing token: %v", err)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		} else {
-			// Store the claims in the request context
-			ctx := context.WithValue(r.Context(), ctxUserKey{}, claims)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		}
-	})
+	serverConfig *common.ServerConfig
 }
 
 func (c ServeCmd) Run() error {
-	var err error
-	singBoxPath, err = exec.LookPath("sing-box")
-	if err != nil {
-		return fmt.Errorf("sing-box not found: %w", err)
+	if !common.CheckSingboxInstalled() {
+		return fmt.Errorf("sing-box not found in PATH")
 	}
-
-	serverConfig, err := readServerConfig()
+	var err error
+	c.serverConfig, err = common.ReadServerConfig()
 	if err != nil {
 		// no config found. init
-		cmd := InitCmd{}
-		if err = cmd.Run(); err != nil {
+		c.serverConfig, err = InitializeConfigs()
+		if err != nil {
 			return fmt.Errorf("failed to init server: %w", err)
 		}
-		serverConfig, err = readServerConfig()
-		if err != nil {
-			return fmt.Errorf("failed to read server config: %w", err)
-		}
-	} else {
-		printRootToken(serverConfig)
 	}
 
-	if err := restartSingBox(); err != nil {
+	if err := common.RestartSingBox(); err != nil {
 		return fmt.Errorf("failed to start sing-box: %w", err)
 	}
 
+	printRootToken(c.serverConfig)
+
 	srv := http.NewServeMux()
-	srv.Handle("GET /api/v1/connect-config", authMiddleware(serverConfig.HMACSecret, http.HandlerFunc(c.getConnectConfigHandler)))
-	srv.Handle("GET /api/v1/share-link", authMiddleware(serverConfig.HMACSecret, http.HandlerFunc(c.getShareLinkHandler)))
-	srv.Handle("POST /api/v1/process-share-link", authMiddleware(serverConfig.HMACSecret, http.HandlerFunc(c.processShareLinkHandler)))
+	srv.Handle("GET /api/v1/connect-config", auth.Middleware(c.serverConfig.HMACSecret, http.HandlerFunc(c.getConnectConfigHandler)))
+	srv.Handle("GET /api/v1/share-link/{name}", auth.Middleware(c.serverConfig.HMACSecret, auth.AdminOnly(http.HandlerFunc(c.getShareLinkHandler))))
+	srv.Handle("POST /api/v1/revoke/{name}", auth.Middleware(c.serverConfig.HMACSecret, auth.AdminOnly(http.HandlerFunc(c.revokeAccess))))
 	srv.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		// The "/" pattern matches everything, so we need to check
 		// that we're at the root here.
@@ -104,7 +49,7 @@ func (c ServeCmd) Run() error {
 		fmt.Fprintf(w, "Welcome to Lantern Server Manager. In future, there will be UI here!")
 	})
 
-	return http.ListenAndServe(fmt.Sprintf(":%d", serverConfig.Port), srv)
+	return http.ListenAndServe(fmt.Sprintf(":%d", c.serverConfig.Port), srv)
 }
 
 func (c ServeCmd) getConnectConfigHandler(writer http.ResponseWriter, r *http.Request) {
@@ -115,7 +60,7 @@ func (c ServeCmd) getConnectConfigHandler(writer http.ResponseWriter, r *http.Re
 		return
 	}
 
-	cfg, err := generateSingboxConnectConfig(publicIP, c.getRequestUsername(r))
+	cfg, err := common.GenerateSingboxConnectConfig(publicIP, auth.GetRequestUsername(r))
 	if err != nil {
 		log.Errorf("failed to generate connect config: %v", err)
 		http.Error(writer, "failed to generate connect config", http.StatusInternalServerError)
@@ -125,18 +70,27 @@ func (c ServeCmd) getConnectConfigHandler(writer http.ResponseWriter, r *http.Re
 	_, _ = writer.Write(cfg)
 }
 
-func (c ServeCmd) processShareLinkHandler(w http.ResponseWriter, r *http.Request) {
-
-}
+const ShareLinkExpiration = 24 * time.Hour
 
 func (c ServeCmd) getShareLinkHandler(w http.ResponseWriter, r *http.Request) {
-
+	username := r.PathValue("name")
+	accessToken, err := auth.GenerateAccessToken(c.serverConfig.HMACSecret, username, time.Now().Add(ShareLinkExpiration))
+	if err != nil {
+		log.Errorf("failed to generate access token: %v", err)
+		http.Error(w, "failed to generate access token", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(fmt.Sprintf(`{"token": "%s"}`, accessToken)))
 }
 
-func (c ServeCmd) getRequestUsername(r *http.Request) string {
-	if claims, ok := r.Context().Value(ctxUserKey{}).(string); ok {
-		return claims
+func (c ServeCmd) revokeAccess(w http.ResponseWriter, r *http.Request) {
+	username := r.PathValue("name")
+	if err := common.RevokeUser(username); err != nil {
+		log.Errorf("failed to revoke user: %v", err)
+		http.Error(w, "failed to revoke user", http.StatusInternalServerError)
+		return
 	}
-	return ""
-
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(fmt.Sprintf(`{"status": "ok"}`)))
 }
