@@ -29,7 +29,7 @@ func (c *ServerConfig) GetNewServerURL() string {
 }
 func (c *ServerConfig) GetQR() string {
 	qrCode := bytes.NewBufferString("")
-	qrterminal.Generate(c.GetNewServerURL(), qrterminal.L, qrCode)
+	qrterminal.GenerateHalfBlock(c.GetNewServerURL(), qrterminal.L, qrCode)
 
 	return qrCode.String()
 }

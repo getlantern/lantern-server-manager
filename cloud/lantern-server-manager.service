@@ -1,0 +1,14 @@
+[Unit]
+Description=Lantern Server Manager
+Documentation=https://github.com/getlantern/lantern-server-manager
+After=syslog.target network.target remote-fs.target nss-lookup.target
+
+[Service]
+User=root
+ExecStart=/opt/lantern/lantern-server-manager serve
+ExecStop=/bin/kill -s QUIT $MAINPID
+PrivateTmp=true
+StandardOutput=journal+console
+StandardError=journal+console
+[Install]
+WantedBy=multi-user.target

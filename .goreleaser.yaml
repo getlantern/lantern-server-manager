@@ -16,6 +16,10 @@ builds:
       - linux
     goarch:
       - amd64
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -extldflags=-static
 
     binary: lantern-server-manager
 

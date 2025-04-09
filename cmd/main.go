@@ -55,14 +55,17 @@ func main() {
 func ensureDataDirectoryExists() {
 	if fi, err := os.Stat(args.DataDir); err != nil {
 		if os.IsNotExist(err) {
+			log.Debug("data directory does not exist, creating", "path", args.DataDir)
 			err = os.MkdirAll(args.DataDir, 0755)
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("Unable to create data folder %v", err)
 			}
 		} else if !fi.IsDir() {
 			log.Fatal("data directory is not a directory")
 		}
 	} else {
-		log.Fatal(err)
+		if !fi.IsDir() {
+			log.Fatal("data directory is not a directory")
+		}
 	}
 }
