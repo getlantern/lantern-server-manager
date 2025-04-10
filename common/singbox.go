@@ -122,7 +122,7 @@ func GenerateSingBoxConnectConfig(dataDir, publicIP, username string) ([]byte, e
 						Server:     publicIP,
 						ServerPort: inboundOptions.ListenPort,
 					},
-					Method:   "2022-blake3-aes-128-gcm",
+					Method:   "chacha20-ietf-poly1305",
 					Password: pw,
 				},
 			},
@@ -140,8 +140,8 @@ func WriteSingBoxServerConfig(dataDir string, opt *option.Options) error {
 }
 
 func makeShadowsocksPassword() string {
-	// generate a password. we are using 2022-blake3-aes-128-gcm so length must be 16
-	passwordStr := password.MustGenerate(16, 10, 6, false, false)
+	// generate a password. we are using chacha20-ietf-poly1305 so length can be anything
+	passwordStr := password.MustGenerate(32, 10, 6, false, false)
 
 	return base64.StdEncoding.EncodeToString([]byte(passwordStr))
 }
@@ -163,7 +163,7 @@ func GenerateBasicSingBoxServerConfig(dataDir string) (*option.Options, error) {
 				Tag:  "ss-inbound",
 
 				Options: &option.ShadowsocksInboundOptions{
-					Method: "2022-blake3-aes-128-gcm",
+					Method: "chacha20-ietf-poly1305",
 					ListenOptions: option.ListenOptions{
 						ListenPort: uint16(port),
 						Listen:     common.Ptr(badoption.Addr(netip.AddrFrom4([4]byte{0, 0, 0, 0}))),
@@ -194,10 +194,18 @@ func ValidateSingBoxConfig(dataDir string) error {
 	return nil
 }
 
+// RestartSingBox restarts the sing-box service. If NO_SYSTEMD is set, it will use pkill and run the command directly.
+// this is useful for local testing without install of the service
+var noSystemd = os.Getenv("NO_SYSTEMD") != ""
+
 func RestartSingBox(dataDir string) error {
-	singBoxPath, _ := exec.LookPath("sing-box")
-	// kill process
-	_ = exec.Command("pkill", "-9", "sing-box").Run()
-	// start process
-	return exec.Command(singBoxPath, "run", "--config", path.Join(dataDir, "sing-box-config.json")).Start()
+	if noSystemd {
+		singBoxPath, _ := exec.LookPath("sing-box")
+		// kill process
+		_ = exec.Command("pkill", "-9", "sing-box").Run()
+		// start process
+		return exec.Command(singBoxPath, "run", "--config", path.Join(dataDir, "sing-box-config.json")).Start()
+	} else {
+		return exec.Command("systemctl", "restart", "sing-box").Run()
+	}
 }

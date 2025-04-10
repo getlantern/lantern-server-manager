@@ -2,7 +2,6 @@ lantern-server-manager:
 	CGO_ENABLED=0 go build -ldflags="-extldflags=-static" -o lantern-server-manager ./cmd/...
 
 packer:
-	@cd cloud/packer
 	@if [ -z "$(PKR_VAR_aws_secret_key)" ]; then \
 		echo "Error: PKR_VAR_aws_secret_key is not set"; \
 		exit 1; \
@@ -17,4 +16,4 @@ packer:
 		exit 1; \
 	fi
 
-	@packer build .
+	cd cloud/packer && packer build .

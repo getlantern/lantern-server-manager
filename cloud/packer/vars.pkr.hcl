@@ -14,7 +14,6 @@ variable "aws_access_key" {
 
 variable "version" {
   type    = string
-  default = "0.0.2"
 }
 
 variable "sing_box_version" {

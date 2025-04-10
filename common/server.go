@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mdp/qrterminal/v3"
 	"math/rand/v2"
 	"os"
-	"os/exec"
 	"path"
 	"time"
 
@@ -29,20 +29,8 @@ func (c *ServerConfig) GetNewServerURL() string {
 }
 
 func (c *ServerConfig) GetQR() string {
-	qrCodeOptions := []string{"ANSI", "ANSI256", "ASCII", "ASCIIi", "UTF8", "UTF8i", "ANSIUTF8", "ANSIUTF8i", "ANSI256UTF8"}
-	text := "https://google.com/" // TODO: c.GetNewServerURL()
 	qrCode := bytes.NewBufferString("")
-	for _, qrCodeOption := range qrCodeOptions {
-		cmd := exec.Command("qrencode", "-t", qrCodeOption, text+qrCodeOption)
-		// collect output
-		cmd.Stdout = qrCode
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			log.Errorf("Error generating QR code: %v", err)
-			continue
-		}
-	}
-	//qrterminal.GenerateHalfBlock(c.GetNewServerURL(), qrterminal.L, qrCode)
+	qrterminal.GenerateHalfBlock(c.GetNewServerURL(), qrterminal.L, qrCode)
 
 	return qrCode.String()
 }
