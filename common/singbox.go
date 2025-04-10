@@ -58,7 +58,7 @@ func RevokeUser(dataDir, username string) error {
 	}
 
 	// restart singbox
-	return RestartSingBox()
+	return RestartSingBox(dataDir)
 }
 
 func GetShadowsocksInboundConfig(singBoxServerConfig *option.Options) (*option.ShadowsocksInboundOptions, error) {
@@ -103,7 +103,7 @@ func GenerateSingBoxConnectConfig(dataDir, publicIP, username string) ([]byte, e
 			return nil, err
 		}
 		// restart singbox
-		if err = RestartSingBox(); err != nil {
+		if err = RestartSingBox(dataDir); err != nil {
 			return nil, err
 		}
 	}
@@ -182,10 +182,22 @@ func CheckSingBoxInstalled() bool {
 	return err == nil
 }
 
-func RestartSingBox() error {
+func ValidateSingBoxConfig(dataDir string) error {
+	singBoxPath, err := exec.LookPath("sing-box")
+	if err != nil {
+		return fmt.Errorf("sing-box not found in PATH: %w", err)
+	}
+	// check for non-zero exit code
+	if err = exec.Command(singBoxPath, "check", "--config", path.Join(dataDir, "sing-box-config.json")).Run(); err != nil {
+		return fmt.Errorf("failed to validate sing-box config: %w", err)
+	}
+	return nil
+}
+
+func RestartSingBox(dataDir string) error {
 	singBoxPath, _ := exec.LookPath("sing-box")
 	// kill process
 	_ = exec.Command("pkill", "-9", "sing-box").Run()
 	// start process
-	return exec.Command(singBoxPath, "run", "--config", "sing-box-config.json").Start()
+	return exec.Command(singBoxPath, "run", "--config", path.Join(dataDir, "sing-box-config.json")).Start()
 }

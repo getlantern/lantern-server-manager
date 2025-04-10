@@ -7,29 +7,42 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
+	"os/exec"
 	"path"
 	"time"
 
 	"github.com/charmbracelet/log"
-	"github.com/mdp/qrterminal/v3"
 	"github.com/sethvargo/go-password/password"
 
 	"github.com/getlantern/lantern-server-manager/auth"
 )
 
 type ServerConfig struct {
-	IP          string `json:"ip"`
+	ExternalIP  string `json:"external_ip"`
 	Port        int    `json:"port"`
 	AccessToken string `json:"access_token"`
 	HMACSecret  []byte `json:"hmac_secret"`
 }
 
 func (c *ServerConfig) GetNewServerURL() string {
-	return fmt.Sprintf("lantern://new-private-server?ip=%s&port=%d&token=%s", c.IP, c.Port, c.AccessToken)
+	return fmt.Sprintf("lantern://new-private-server?ip=%s&port=%d&token=%s", c.ExternalIP, c.Port, c.AccessToken)
 }
+
 func (c *ServerConfig) GetQR() string {
+	qrCodeOptions := []string{"ANSI", "ANSI256", "ASCII", "ASCIIi", "UTF8", "UTF8i", "ANSIUTF8", "ANSIUTF8i", "ANSI256UTF8"}
+	text := "https://google.com/" // TODO: c.GetNewServerURL()
 	qrCode := bytes.NewBufferString("")
-	qrterminal.GenerateHalfBlock(c.GetNewServerURL(), qrterminal.L, qrCode)
+	for _, qrCodeOption := range qrCodeOptions {
+		cmd := exec.Command("qrencode", "-t", qrCodeOption, text+qrCodeOption)
+		// collect output
+		cmd.Stdout = qrCode
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			log.Errorf("Error generating QR code: %v", err)
+			continue
+		}
+	}
+	//qrterminal.GenerateHalfBlock(c.GetNewServerURL(), qrterminal.L, qrCode)
 
 	return qrCode.String()
 }
@@ -43,7 +56,7 @@ func ReadServerConfig(dataDir string) (*ServerConfig, error) {
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil, err
 	}
-	if config.IP == "" {
+	if config.ExternalIP == "" {
 		return nil, errors.New("server ip is required")
 	}
 	if config.Port == 0 {
@@ -63,7 +76,7 @@ var AdminExpirationTime = time.Date(2900, 1, 1, 0, 0, 0, 0, time.UTC)
 func GenerateServerConfig(dataDir string) (*ServerConfig, error) {
 	publicIP, err := GetPublicIP()
 	if err != nil {
-		log.Error("Cannot detect your public IP, please get it from your host provider")
+		log.Error("Cannot detect your public ExternalIP, please get it from your host provider")
 		publicIP = "0.0.0.0"
 	}
 
@@ -77,7 +90,7 @@ func GenerateServerConfig(dataDir string) (*ServerConfig, error) {
 		return nil, err
 	}
 	conf := &ServerConfig{
-		IP:          publicIP,
+		ExternalIP:  publicIP,
 		Port:        port,
 		AccessToken: accessToken,
 		HMACSecret:  []byte(hmacSecret),

@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/sagernet/sing-box/option"
 	"net/http"
 	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/sagernet/sing-box/option"
 
 	"github.com/getlantern/lantern-server-manager/auth"
 	"github.com/getlantern/lantern-server-manager/common"
@@ -17,10 +17,7 @@ type ServeCmd struct {
 	singboxConfig *option.Options
 }
 
-func (c ServeCmd) Run() error {
-	if !common.CheckSingBoxInstalled() {
-		return fmt.Errorf("sing-box not found in PATH")
-	}
+func (c *ServeCmd) readConfigs() error {
 	var err error
 	c.serverConfig, err = common.ReadServerConfig(args.DataDir)
 	if err != nil {
@@ -35,13 +32,27 @@ func (c ServeCmd) Run() error {
 			return fmt.Errorf("failed to read sing-box config: %w", err)
 		}
 	}
+	if err = common.ValidateSingBoxConfig(args.DataDir); err != nil {
+		return fmt.Errorf("failed to validate sing-box config: %w", err)
+	}
 
-	if err := common.RestartSingBox(); err != nil {
+	if err = common.RestartSingBox(args.DataDir); err != nil {
 		return fmt.Errorf("failed to start sing-box: %w", err)
 	}
 
+	return nil
+}
+
+func (c *ServeCmd) Run() error {
+	if !common.CheckSingBoxInstalled() {
+		return fmt.Errorf("sing-box not found in PATH")
+	}
+	if err := c.readConfigs(); err != nil {
+		return err
+	}
+
 	printRootToken(c.serverConfig, c.singboxConfig)
-	go common.CheckConnectivity(c.serverConfig.IP, c.serverConfig.Port)
+	go common.CheckConnectivity(c.serverConfig.ExternalIP, c.serverConfig.Port)
 	srv := http.NewServeMux()
 	srv.Handle("GET /api/v1/health", http.HandlerFunc(c.healthCheckHandler))
 	srv.Handle("GET /api/v1/connect-config", auth.Middleware(c.serverConfig.HMACSecret, http.HandlerFunc(c.getConnectConfigHandler)))
@@ -57,11 +68,11 @@ func (c ServeCmd) Run() error {
 		fmt.Fprintf(w, "Welcome to Lantern Server Manager. In future, there will be UI here!")
 	})
 
-	return http.ListenAndServe(fmt.Sprintf(":%d", c.serverConfig.Port), srv)
+	return auth.SelfSignedListenAndServeTLS(args.DataDir, c.serverConfig.ExternalIP, fmt.Sprintf(":%d", c.serverConfig.Port), srv)
 }
 
-func (c ServeCmd) getConnectConfigHandler(writer http.ResponseWriter, r *http.Request) {
-	cfg, err := common.GenerateSingBoxConnectConfig(args.DataDir, c.serverConfig.IP, auth.GetRequestUsername(r))
+func (c *ServeCmd) getConnectConfigHandler(writer http.ResponseWriter, r *http.Request) {
+	cfg, err := common.GenerateSingBoxConnectConfig(args.DataDir, c.serverConfig.ExternalIP, auth.GetRequestUsername(r))
 	if err != nil {
 		log.Errorf("failed to generate connect config: %v", err)
 		http.Error(writer, "failed to generate connect config", http.StatusInternalServerError)
@@ -73,7 +84,7 @@ func (c ServeCmd) getConnectConfigHandler(writer http.ResponseWriter, r *http.Re
 
 const ShareLinkExpiration = 24 * time.Hour
 
-func (c ServeCmd) getShareLinkHandler(w http.ResponseWriter, r *http.Request) {
+func (c *ServeCmd) getShareLinkHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.PathValue("name")
 	accessToken, err := auth.GenerateAccessToken(c.serverConfig.HMACSecret, username, time.Now().Add(ShareLinkExpiration))
 	if err != nil {
@@ -85,7 +96,7 @@ func (c ServeCmd) getShareLinkHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(fmt.Sprintf(`{"token": "%s"}`, accessToken)))
 }
 
-func (c ServeCmd) revokeAccess(w http.ResponseWriter, r *http.Request) {
+func (c *ServeCmd) revokeAccess(w http.ResponseWriter, r *http.Request) {
 	username := r.PathValue("name")
 	if err := common.RevokeUser(args.DataDir, username); err != nil {
 		log.Errorf("failed to revoke user: %v", err)
@@ -96,7 +107,7 @@ func (c ServeCmd) revokeAccess(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(fmt.Sprintf(`{"status": "ok"}`)))
 }
 
-func (c ServeCmd) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+func (c *ServeCmd) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"status": "ok"}`))
 }
