@@ -45,16 +45,22 @@ func attemptToOpenPorts(config *common.ServerConfig, singBoxConfig *option.Optio
 		log.Fatal(err)
 	}
 
-	if err := exec.Command("firewall-cmd", "--add-port", fmt.Sprintf("%d/tcp", config.Port), "--permanent", "--reload").Run(); err != nil {
+	if err := exec.Command("firewall-cmd", "--add-port", fmt.Sprintf("%d/tcp", config.Port), "--permanent").Run(); err != nil {
 		log.Errorf("failed to open port %d: %v", config.Port, err)
 	} else {
 		log.Infof("opened port %d", config.Port)
 	}
 
-	if err := exec.Command("firewall-cmd", "--add-port", fmt.Sprintf("%d/tcp", inboundOptions.ListenPort), "--permanent", "--reload").Run(); err != nil {
+	if err := exec.Command("firewall-cmd", "--add-port", fmt.Sprintf("%d/tcp", inboundOptions.ListenPort), "--permanent").Run(); err != nil {
 		log.Errorf("failed to open port %d: %v", inboundOptions.ListenPort, err)
 	} else {
 		log.Infof("opened port %d", inboundOptions.ListenPort)
+	}
+
+	if err := exec.Command("firewall-cmd", "--reload").Run(); err != nil {
+		log.Errorf("failed to reload firewall: %v", err)
+	} else {
+		log.Infof("reloaded firewall")
 	}
 }
 

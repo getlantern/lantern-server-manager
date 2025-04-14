@@ -81,3 +81,14 @@
           value: '25'
         - name: 'net.core.netdev_max_backlog'
           value: '32768'
+
+    - name: Create journal directory
+      file:
+        path: '/var/log/journal'
+        state: 'directory'
+    - name: Set journal directory permissions
+      command: 'systemd-tmpfiles --create --prefix /var/log/journal'
+    - name: Restart journald
+      service:
+        name: 'systemd-journald'
+        state: 'restarted'

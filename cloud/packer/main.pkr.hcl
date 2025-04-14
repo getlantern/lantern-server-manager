@@ -15,10 +15,10 @@ packer {
   }
 }
 
-source "digitalocean" "ubuntu" {
+source "digitalocean" "nyc1" {
   api_token    = "${var.do_api_token}"
-  image        = "ubuntu-24-10-x64"
-  region       = "nyc3"
+  image        = "debian-12-x64"
+  region       = "nyc1"
   size         = "s-1vcpu-1gb"
   ssh_username = "root"
   snapshot_name = "lantern-server-manager-{{timestamp}}"
@@ -42,8 +42,8 @@ source "amazon-ebs" "amazon-linux" {
 
 build {
   sources = [
-    "source.amazon-ebs.amazon-linux",
-    "source.digitalocean.ubuntu"
+    # "source.amazon-ebs.amazon-linux",
+    "source.digitalocean.nyc1"
   ]
 
   provisioner "shell-local" {
@@ -60,8 +60,16 @@ build {
   }
 
   provisioner "shell" {
+    only = ["source.digitalocean.ubuntu-nyc1"]
     inline = [
-      "sudo systemctl restart systemd-journald.service",
+      "journalctl --verify",
+      "systemctl restart systemd-journald.service",
+    ]
+  }
+
+  provisioner "shell" {
+    only = ["source.amazon-ebs.amazon-linux"]
+    inline = [
       "sudo rm -f /root/.ssh/authorized_keys",
       "sudo rm -f /home/ec2-user/.ssh/authorized_keys"
     ]
