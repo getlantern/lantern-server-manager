@@ -21,6 +21,7 @@ source "digitalocean" "ubuntu" {
   region       = "nyc3"
   size         = "s-1vcpu-1gb"
   ssh_username = "root"
+  snapshot_name = "lantern-server-manager-{{timestamp}}"
 }
 
 source "amazon-ebs" "amazon-linux" {

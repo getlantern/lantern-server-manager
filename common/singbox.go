@@ -112,6 +112,19 @@ func GenerateSingBoxConnectConfig(dataDir, publicIP, username string) ([]byte, e
 			Level:  "debug",
 			Output: "stdout",
 		},
+		// the block below is only used for testing, when Lantern VPN imports the config
+		// it should discard the Inbounds section and replace it with the one in the app (TUN)
+		Inbounds: []option.Inbound{
+			{
+				Type: "socks5",
+				Options: &option.SocksInboundOptions{
+					ListenOptions: option.ListenOptions{
+						ListenPort: 8888,
+						Listen:     common.Ptr(badoption.Addr(netip.AddrFrom4([4]byte{127, 0, 0, 1}))),
+					},
+				},
+			},
+		},
 		Outbounds: []option.Outbound{
 			{
 				Type: "shadowsocks",
