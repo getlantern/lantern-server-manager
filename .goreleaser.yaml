@@ -16,6 +16,7 @@ builds:
       - linux
     goarch:
       - amd64
+      - arm64
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -36,6 +37,42 @@ changelog:
 
 release:
   replace_existing_artifacts: true
+
+nfpms:
+  - package_name: "lantern-server-manager"
+    formats:
+      - deb
+      - rpm
+    section: "default"
+    maintainer: "Lantern Team <dev@getlantern.org>"
+    description: |
+      Lantern Server Manager
+    vendor: "Brave New Software"
+    homepage: "https://github.com/getlantern/lantern-headless-client"
+    license: "GPL"
+    contents:
+      - src: ./cloud/lantern-server-manager.service
+        dst: /opt/lantern/lantern-server-manager.service
+        file_info:
+          mode: 0600
+          owner: root
+          group: root
+      - src: ./cloud/lantern-server-manager.sysvinit
+        dst: /opt/lantern/lantern-server-manager.sysvinit
+        file_info:
+          mode: 0700
+          owner: root
+          group: root
+    scripts:
+      postinstall: ./cloud/postinstall
+      preremove: ./cloud/preremove
+      preinstall: ./cloud/preinstall
+
+furies:
+  - account: getlantern
+    formats:
+      - deb
+      - rpm
 
 dockers:
   - image_templates:
