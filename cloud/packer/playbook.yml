@@ -1,0 +1,83 @@
+---
+# playbook.yml
+- name: 'Provision Image'
+  hosts: default
+  become: true
+
+  tasks:
+    - name: Add repository for sing-box
+      yum_repository:
+        name: sing-box
+        description: sing-box YUM repo
+        baseurl: https://rpm.sagernet.org/
+        gpgcheck: yes
+        gpgkey: https://sing-box.app/gpg.key
+      when: ansible_os_family == "RedHat"
+        
+    - name: Add repository for lantern-server-manager
+      yum_repository:
+        name: lantern-server-manager
+        description: lantern-server-manager YUM repo
+        baseurl: https://getlantern.fury.site/yum/
+        gpgcheck: no
+      when: ansible_os_family == "RedHat"
+        
+    - name: Add deb repository for sing-box
+      apt_repository:
+        state: present
+        repo: deb [trusted=yes] https://deb.sagernet.org/ /
+      when: ansible_os_family == "Debian"
+        
+    - name: Add deb repository for lantern-server-manager
+      apt_repository:
+        state: present
+        repo: deb [trusted=yes] https://apt.fury.io/getlantern/ /
+      when: ansible_os_family == "Debian"
+
+    - name: install packages
+      package:
+        name:
+          - lantern-server-manager
+          - sing-box
+          - fail2ban
+          - firewalld
+        state: present
+
+    - name: enable fail2ban
+      systemd:
+          name: fail2ban
+          enabled: true
+          state: started
+
+    - name: setup firewalld for port 22 only
+      ansible.posix.firewalld:
+          service: ssh
+          permanent: true
+          state: enabled
+          immediate: no
+
+    - name: ensure values are set correctly in sysctl
+      ansible.posix.sysctl:
+        name: '{{ item.name }}'
+        value: '{{ item.value }}'
+        state: present
+        reload: yes
+      loop:
+        - name: 'fs.file-max'
+          value: '67108864'
+        - name: 'net.core.default_qdisc'
+          value: 'fq'
+        - name: 'net.core.optmem_max'
+          value: '262144'
+        - name: 'net.core.rmem_max'
+          value: '33554432'
+        - name: 'net.core.wmem_max'
+          value: '33554432'
+        - name: 'net.ipv4.tcp_congestion_control'
+          value: 'bbr'
+        - name: 'net.ipv4.tcp_max_syn_backlog'
+          value: '10240'
+        - name: 'net.ipv4.tcp_fin_timeout'
+          value: '25'
+        - name: 'net.core.netdev_max_backlog'
+          value: '32768'

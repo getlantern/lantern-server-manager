@@ -10,6 +10,10 @@ packer:
 		echo "Error: PKR_VAR_aws_access_key is not set"; \
 		exit 1; \
 	fi
+	@if [ -z "$(PKR_VAR_do_api_token)" ]; then \
+		echo "Error: PKR_VAR_do_api_token is not set"; \
+		exit 1; \
+	fi
 	# Make sure you have packer installed
 	@if ! command -v packer &> /dev/null; then \
 		echo "Error: packer is not installed"; \

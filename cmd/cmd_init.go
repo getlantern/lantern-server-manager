@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"github.com/charmbracelet/log"
 	"github.com/sagernet/sing-box/option"
+	"os/exec"
 
 	"github.com/getlantern/lantern-server-manager/common"
 )
@@ -30,6 +32,30 @@ func (c InitCmd) Run() error {
 	}
 
 	return nil
+}
+
+func attemptToOpenPorts(config *common.ServerConfig, singBoxConfig *option.Options) {
+	// check if firewall-cmd exists
+	if path, _ := exec.LookPath("firewall-cmd"); path == "" {
+		log.Infof("firewall-cmd not found in $PATH. You may need to open the ports manually.")
+		return
+	}
+	inboundOptions, err := common.GetShadowsocksInboundConfig(singBoxConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := exec.Command("firewall-cmd", "--add-port", fmt.Sprintf("%d/tcp", config.Port), "--permanent", "--reload").Run(); err != nil {
+		log.Errorf("failed to open port %d: %v", config.Port, err)
+	} else {
+		log.Infof("opened port %d", config.Port)
+	}
+
+	if err := exec.Command("firewall-cmd", "--add-port", fmt.Sprintf("%d/tcp", inboundOptions.ListenPort), "--permanent", "--reload").Run(); err != nil {
+		log.Errorf("failed to open port %d: %v", inboundOptions.ListenPort, err)
+	} else {
+		log.Infof("opened port %d", inboundOptions.ListenPort)
+	}
 }
 
 func printRootToken(config *common.ServerConfig, singBoxConfig *option.Options) {

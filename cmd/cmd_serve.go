@@ -52,6 +52,7 @@ func (c *ServeCmd) Run() error {
 	}
 
 	printRootToken(c.serverConfig, c.singboxConfig)
+	attemptToOpenPorts(c.serverConfig, c.singboxConfig)
 	go common.CheckConnectivity(c.serverConfig.ExternalIP, c.serverConfig.Port)
 	srv := http.NewServeMux()
 	srv.Handle("GET /api/v1/health", http.HandlerFunc(c.healthCheckHandler))

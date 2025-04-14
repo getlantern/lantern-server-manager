@@ -12,11 +12,7 @@ variable "aws_access_key" {
   sensitive = true
 }
 
-variable "version" {
-  type    = string
-}
-
-variable "sing_box_version" {
-  type    = string
-  default = "1.11.7"
+variable "do_api_token" {
+  type      = string
+  sensitive = true
 }
