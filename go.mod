@@ -9,8 +9,10 @@ require (
 	github.com/charmbracelet/log v0.4.1
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/mdp/qrterminal/v3 v3.2.1
+	github.com/mroth/jitter v0.1.1
 	github.com/sagernet/sing v0.6.6-0.20250406122223-d47540857e58
 	github.com/sagernet/sing-box v1.11.7-0.20250406140545-d7a88a2ae34b
+	github.com/sethvargo/go-password v0.3.1
 )
 
 require (
@@ -52,7 +54,7 @@ require (
 	github.com/google/nftables v0.2.1-0.20240414091927-5e242ec57806 // indirect
 	github.com/google/pprof v0.0.0-20240424215950-a892ee059fd6 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/csrf v1.7.3-0.20250123201450-9dd6af1f6d30 // indirect
+	github.com/gorilla/csrf v1.7.3 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
 	github.com/hdevalence/ed25519consensus v0.2.0 // indirect
@@ -76,7 +78,6 @@ require (
 	github.com/mholt/acmez/v3 v3.0.1 // indirect
 	github.com/miekg/dns v1.1.63 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
-	github.com/mroth/jitter v0.1.1 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.17.2 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
@@ -105,7 +106,6 @@ require (
 	github.com/sagernet/utls v1.6.7 // indirect
 	github.com/sagernet/wireguard-go v0.0.1-beta.5 // indirect
 	github.com/sagernet/ws v0.0.0-20231204124109-acfe8907c854 // indirect
-	github.com/sethvargo/go-password v0.3.1 // indirect
 	github.com/tailscale/certstore v0.1.1-0.20231202035212-d3fa0460f47e // indirect
 	github.com/tailscale/go-winio v0.0.0-20231025203758-c4f33415bf55 // indirect
 	github.com/tailscale/golang-x-crypto v0.0.0-20240604161659-3fde5e568aa4 // indirect
