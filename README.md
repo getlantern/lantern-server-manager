@@ -25,10 +25,12 @@ When running inside Docker container, we don't want to use random ports, so we n
 ```bash
 docker run -d \
   --name lantern-server-manager \
+  -e NO_FIREWALLD=true \
+  -e NO_SYSTEMD=true
   -p 8080:8080 \
   -p 1234:1234 \
   -v /path/to/config:/config \
-  getlantern/lantern-server-manager -d /config --vpn-port 1234 --api-port 8080 serve
+  getlantern/lantern-server-manager -d /config --vpn-port 1234 --api-port 8080
 ```
 
 ### Digital Ocean

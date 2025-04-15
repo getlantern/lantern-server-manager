@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/charmbracelet/log"
 	"github.com/sagernet/sing-box/option"
+	"os"
 	"os/exec"
 
 	"github.com/getlantern/lantern-server-manager/common"
@@ -34,7 +35,15 @@ func (c InitCmd) Run() error {
 	return nil
 }
 
+// attemptToOpenPorts uses firewall-cmd to open required ports.
+// NO_FIREWALLD skips this. This is useful for local testing or within docker
+var noFirewallD = os.Getenv("NO_FIREWALLD") != ""
+
 func attemptToOpenPorts(config *common.ServerConfig, singBoxConfig *option.Options) {
+	if noFirewallD {
+		log.Infof("NO_FIREWALLD is set, not opening ports")
+		return
+	}
 	// check if firewall-cmd exists
 	if path, _ := exec.LookPath("firewall-cmd"); path == "" {
 		log.Infof("firewall-cmd not found in $PATH. You may need to open the ports manually.")
