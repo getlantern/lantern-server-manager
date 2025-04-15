@@ -13,11 +13,11 @@ type InitCmd struct {
 }
 
 func InitializeConfigs() (*common.ServerConfig, *option.Options, error) {
-	config, err := common.GenerateServerConfig(args.DataDir)
+	config, err := common.GenerateServerConfig(args.DataDir, args.APIPort)
 	if err != nil {
 		return nil, nil, err
 	}
-	singboxConfig, err := common.GenerateBasicSingBoxServerConfig(args.DataDir)
+	singboxConfig, err := common.GenerateBasicSingBoxServerConfig(args.DataDir, args.VPNPort)
 	if err != nil {
 		return nil, nil, err
 	}

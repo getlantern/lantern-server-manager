@@ -159,10 +159,12 @@ func makeShadowsocksPassword() string {
 	return base64.StdEncoding.EncodeToString([]byte(passwordStr))
 }
 
-func GenerateBasicSingBoxServerConfig(dataDir string) (*option.Options, error) {
-	// generate a number that is a valid non-privileged port
-	port := rand.N(65535-1024) + 1024
-
+func GenerateBasicSingBoxServerConfig(dataDir string, listenPort int) (*option.Options, error) {
+	port := listenPort
+	if port == 0 {
+		// generate a number that is a valid non-privileged port
+		port = rand.N(65535-1024) + 1024
+	}
 	pw := makeShadowsocksPassword()
 	// generate basic shadowsocks config
 	opt := option.Options{

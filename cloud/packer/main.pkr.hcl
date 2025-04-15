@@ -12,7 +12,23 @@ packer {
       source  = "github.com/hashicorp/digitalocean"
       version = "~> 1"
     }
+    googlecompute = {
+      source  = "github.com/hashicorp/googlecompute"
+      version = "~> 1"
+    }
   }
+}
+
+source "googlecompute" "ubuntu" {
+  project_id = var.gcp_project_id
+  source_image_family = "ubuntu-2204-lts"
+  machine_type = "e2-micro"
+  zone = var.gcp_zone
+  ssh_username = "ubuntu"
+  image_name = "lantern-server-manager-{{timestamp}}"
+  network = "lanternet"
+  subnetwork = "default"
+  use_iap = true
 }
 
 source "digitalocean" "nyc1" {
@@ -43,7 +59,8 @@ source "amazon-ebs" "amazon-linux" {
 build {
   sources = [
     # "source.amazon-ebs.amazon-linux",
-    "source.digitalocean.nyc1"
+    # "source.digitalocean.nyc1",
+    "source.googlecompute.ubuntu",
   ]
 
   provisioner "shell-local" {

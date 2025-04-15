@@ -14,6 +14,16 @@ packer:
 		echo "Error: PKR_VAR_do_api_token is not set"; \
 		exit 1; \
 	fi
+
+	@if [ -z "$(PKR_VAR_gcp_project_id)" ]; then \
+		echo "Error: PKR_VAR_gcp_project_id is not set"; \
+		exit 1; \
+	fi
+	@if [ -z "$(PKR_VAR_gcp_zone)" ]; then \
+		echo "Error: PKR_VAR_gcp_zone is not set"; \
+		exit 1; \
+	fi
+
 	# Make sure you have packer installed
 	@if ! command -v packer &> /dev/null; then \
 		echo "Error: packer is not installed"; \

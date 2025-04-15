@@ -9,9 +9,7 @@ metadata:
   license: "GPL"
 
 builds:
-  - # we are not building using goreleaser, but using make, so here we just use the prebuilt binaries
-    main: ./cmd
-
+  - main: ./cmd
     goos:
       - linux
     goarch:
@@ -55,12 +53,6 @@ nfpms:
         dst: /opt/lantern/lantern-server-manager.service
         file_info:
           mode: 0600
-          owner: root
-          group: root
-      - src: ./cloud/lantern-server-manager.sysvinit
-        dst: /opt/lantern/lantern-server-manager.sysvinit
-        file_info:
-          mode: 0700
           owner: root
           group: root
     scripts:

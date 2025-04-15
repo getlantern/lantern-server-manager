@@ -16,3 +16,11 @@ variable "do_api_token" {
   type      = string
   sensitive = true
 }
+
+variable "gcp_project_id" {
+  type = string
+}
+
+variable "gcp_zone" {
+  type = string
+}

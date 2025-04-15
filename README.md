@@ -15,6 +15,71 @@ It will allow you to easily set up a server, configure it, and allow to share ac
 6. Console UI
 7. REST API
 
+
+## Installation
+
+### Docker
+
+When running inside Docker container, we don't want to use random ports, so we need to specify the ports we want to use. 
+
+```bash
+docker run -d \
+  --name lantern-server-manager \
+  -p 8080:8080 \
+  -p 1234:1234 \
+  -v /path/to/config:/config \
+  getlantern/lantern-server-manager -d /config --vpn-port 1234 --api-port 8080 serve
+```
+
+### Digital Ocean
+1. Create a droplet using the Lantern Server Manager image from Marketplace
+2. Make sure to add your SSH key and open all ports to the instance
+3. When instance is up, use it's public IP address to fetch the initial token.
+```shell
+ssh root@xxxxxxxx sudo journalctl -u lantern-server-manager
+```
+
+### Google Cloud
+
+1. Start the instance using Lantern Server Manager image
+2. The image has its own firewall installed, so you need to open the ports you want to use.
+```shell
+gcloud compute firewall-rules create allow-all-to-instance \
+    --direction=INGRESS \
+    --priority=1000 \
+    --network=lanternet \
+    --action=ALLOW \
+    --rules=all \
+    --target-tags=allow-all-traffic \
+    --source-ranges=0.0.0.0/0
+gcloud compute instances add-tags instance-20250414-160036 --tags=allow-all-traffic     --zone=us-west1-c
+``` 
+3. Now you can fetch the initial token
+```shell
+gcloud compute instances add-tags instance-20250414-160036     --tags=allow-all-traffic     --zone=us-west1-c sudo journalctl -u lantern-server-manager
+```
+
+### AWS
+1. Create an EC2 instance using the Lantern Server Manager image from Marketplace
+2. When creating the instance, select "vendor suggested security group".
+3. This will create a security group that allows all traffic to the instance.
+4. When instance is up, use it's public IP address to fetch the initial token.
+```shell
+ssh ec2-user@xxxxxxxx sudo journalctl -u lantern-server-manager
+```
+
+## API Usage
+
+1. Start the server. On startup, it will generate a random access key and print it in the logs. It will also let you know you public IP address and the API port.
+2. `export API_KEY=your_access_key`
+3. Request your own VPN configuration `curl -vk https://xxx.xxx.xxx.xxx:yyyy/api/v1/connect-config?token=$API_KEY`
+4. This config can be used with SingBox or with LanternVPN
+5. To share access with other users, you can create a share link by calling the `createShareLink` API. This will generate a link that you can send to the user you want to share access with. Each link has a unique name associated with that user.
+6. `curl -vk https://xxx.xxx.xxx.xxx:yyyy/api/v1/share-link/unique-user-name?token=$API_KEY`
+7. This will generate a link in the format `lantern://xxx.xxx.xxx.xxx/yyyyyy` where `xxx.xxx.xxx.xxx` is the server's IP address and `yyyyyy` is the access key. The access key is timestamped and expires after NN minutes.
+8. You can send this link to the user you want to share access with. When they click the link, it will open the Lantern app and prompt them to connect to the server.
+9. The user's Lantern VPN app will issue the same  `/connect-config` request but will use the access key from the link instead of the root access key.
+
 ## Flow
 
 1. User starts the server

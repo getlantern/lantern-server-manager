@@ -24,6 +24,8 @@ func (ll *LogLevel) UnmarshalText(b []byte) error {
 var args struct {
 	LogLevel LogLevel `arg:"-l,--log-level" help:"set log level" default:"info"`
 	DataDir  string   `arg:"-d" help:"data directory" default:"./data"`
+	APIPort  int      `arg:"--api-port" help:"API port"`
+	VPNPort  int      `arg:"--vpn-port" help:"VPN port"`
 
 	Serve *ServeCmd `arg:"subcommand:serve" help:"start the server"`
 	Init  *InitCmd  `arg:"subcommand:init" help:"generate initial configuration"`

@@ -61,15 +61,18 @@ func ReadServerConfig(dataDir string) (*ServerConfig, error) {
 
 var AdminExpirationTime = time.Date(2900, 1, 1, 0, 0, 0, 0, time.UTC)
 
-func GenerateServerConfig(dataDir string) (*ServerConfig, error) {
+func GenerateServerConfig(dataDir string, listenPort int) (*ServerConfig, error) {
 	publicIP, err := GetPublicIP()
 	if err != nil {
 		log.Error("Cannot detect your public ExternalIP, please get it from your host provider")
 		publicIP = "0.0.0.0"
 	}
 
-	// generate a number that is a valid non-privileged port
-	port := rand.N(65535-1024) + 1024
+	port := listenPort
+	if port == 0 {
+		// generate a number that is a valid non-privileged port
+		port = rand.N(65535-1024) + 1024
+	}
 	// generate hmac secret
 	hmacSecret := password.MustGenerate(32, 10, 10, false, false)
 	// generate an access token
