@@ -10,9 +10,14 @@ import (
 	"github.com/getlantern/lantern-server-manager/common"
 )
 
+// InitCmd defines the structure for the 'init' subcommand.
+// It currently doesn't hold any command-specific arguments but serves as the handler target.
 type InitCmd struct {
 }
 
+// InitializeConfigs generates the initial server and sing-box configurations.
+// It uses the global 'args' variable to access the data directory and port settings.
+// It returns the generated ServerConfig, sing-box Options, and any error encountered.
 func InitializeConfigs() (*common.ServerConfig, *option.Options, error) {
 	config, err := common.GenerateServerConfig(args.DataDir, args.APIPort)
 	if err != nil {
@@ -25,6 +30,9 @@ func InitializeConfigs() (*common.ServerConfig, *option.Options, error) {
 	return config, singboxConfig, nil
 }
 
+// Run executes the 'init' subcommand logic.
+// It calls InitializeConfigs to generate the necessary configuration files
+// and then prints the root access token information using printRootToken.
 func (c InitCmd) Run() error {
 	if config, singboxConfig, err := InitializeConfigs(); err != nil {
 		return err
@@ -35,10 +43,16 @@ func (c InitCmd) Run() error {
 	return nil
 }
 
-// attemptToOpenPorts uses firewall-cmd to open required ports.
-// NO_FIREWALLD skips this. This is useful for local testing or within docker
+// noFirewallD controls whether firewall rules are skipped.
+// If the environment variable NO_FIREWALLD is set to any non-empty value,
+// firewall modifications using firewall-cmd will be skipped.
+// This is useful for local testing or running within containers like Docker.
 var noFirewallD = os.Getenv("NO_FIREWALLD") != ""
 
+// attemptToOpenPorts tries to open the necessary ports using firewall-cmd.
+// It opens the API port defined in the ServerConfig and the VPN port
+// defined in the sing-box configuration's Shadowsocks inbound options.
+// It skips execution if noFirewallD is true or if firewall-cmd is not found.
 func attemptToOpenPorts(config *common.ServerConfig, singBoxConfig *option.Options) {
 	if noFirewallD {
 		log.Infof("NO_FIREWALLD is set, not opening ports")
@@ -73,6 +87,8 @@ func attemptToOpenPorts(config *common.ServerConfig, singBoxConfig *option.Optio
 	}
 }
 
+// printRootToken logs information about the server setup, including required open ports,
+// the Lantern VPN connection URL, and a QR code representation of the URL.
 func printRootToken(config *common.ServerConfig, singBoxConfig *option.Options) {
 	inboundOptions, err := common.GetShadowsocksInboundConfig(singBoxConfig)
 	if err != nil {

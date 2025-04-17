@@ -21,6 +21,9 @@ import (
 	"github.com/sethvargo/go-password/password"
 )
 
+// ReadSingBoxServerConfig reads and parses the sing-box server configuration
+// from "sing-box-config.json" located in the specified data directory.
+// It uses sing-box's internal JSON parsing capabilities.
 func ReadSingBoxServerConfig(dataDir string) (*option.Options, error) {
 	data, err := os.ReadFile(path.Join(dataDir, "sing-box-config.json"))
 	if err != nil {
@@ -35,6 +38,9 @@ func ReadSingBoxServerConfig(dataDir string) (*option.Options, error) {
 	return &opt, nil
 }
 
+// RevokeUser removes a user from the sing-box Shadowsocks inbound configuration.
+// It reads the current config, finds the user by name in the first inbound's user list,
+// removes them, writes the updated config back, and restarts the sing-box service.
 func RevokeUser(dataDir, username string) error {
 	singBoxServerConfig, err := ReadSingBoxServerConfig(dataDir)
 	if err != nil {
@@ -61,6 +67,9 @@ func RevokeUser(dataDir, username string) error {
 	return RestartSingBox(dataDir)
 }
 
+// GetShadowsocksInboundConfig extracts the Shadowsocks inbound options from a given
+// sing-box configuration. It assumes the first inbound defined in the config
+// is the relevant Shadowsocks inbound.
 func GetShadowsocksInboundConfig(singBoxServerConfig *option.Options) (*option.ShadowsocksInboundOptions, error) {
 	if len(singBoxServerConfig.Inbounds) == 0 {
 		return nil, fmt.Errorf("no inbounds found, invalid config")
@@ -72,6 +81,11 @@ func GetShadowsocksInboundConfig(singBoxServerConfig *option.Options) (*option.S
 	return inboundOptions, nil
 }
 
+// GenerateSingBoxConnectConfig creates a sing-box client configuration JSON for a specific user.
+// It reads the server's sing-box config, finds or creates the user's Shadowsocks credentials,
+// constructs a client config pointing to the server's public IP and Shadowsocks port,
+// and returns the marshalled JSON configuration. If the user doesn't exist, they are added
+// to the server config, and sing-box is restarted.
 func GenerateSingBoxConnectConfig(dataDir, publicIP, username string) ([]byte, error) {
 	singBoxServerConfig, err := ReadSingBoxServerConfig(dataDir)
 	if err != nil {
@@ -144,6 +158,8 @@ func GenerateSingBoxConnectConfig(dataDir, publicIP, username string) ([]byte, e
 	return badjson.MarshallObjects(opt)
 }
 
+// WriteSingBoxServerConfig marshals the provided sing-box options into JSON
+// and writes it to "sing-box-config.json" in the specified data directory.
 func WriteSingBoxServerConfig(dataDir string, opt *option.Options) error {
 	data, err := badjson.MarshallObjects(opt)
 	if err != nil {
@@ -152,6 +168,9 @@ func WriteSingBoxServerConfig(dataDir string, opt *option.Options) error {
 	return os.WriteFile(path.Join(dataDir, "sing-box-config.json"), data, 0644)
 }
 
+// makeShadowsocksPassword generates a secure random password suitable for Shadowsocks
+// (specifically for chacha20-ietf-poly1305, though the length is flexible).
+// It returns the base64 encoded version of the generated password bytes.
 func makeShadowsocksPassword() string {
 	// generate a password. we are using chacha20-ietf-poly1305 so length can be anything
 	passwordStr := password.MustGenerate(32, 10, 6, false, false)
@@ -159,6 +178,9 @@ func makeShadowsocksPassword() string {
 	return base64.StdEncoding.EncodeToString([]byte(passwordStr))
 }
 
+// GenerateBasicSingBoxServerConfig creates a minimal initial sing-box server configuration.
+// It sets up logging, a single Shadowsocks inbound listener (on a specified or random port)
+// with a generated password, and writes the configuration to file.
 func GenerateBasicSingBoxServerConfig(dataDir string, listenPort int) (*option.Options, error) {
 	port := listenPort
 	if port == 0 {
@@ -192,11 +214,14 @@ func GenerateBasicSingBoxServerConfig(dataDir string, listenPort int) (*option.O
 	return &opt, WriteSingBoxServerConfig(dataDir, &opt)
 }
 
+// CheckSingBoxInstalled checks if the 'sing-box' executable is available in the system's PATH.
 func CheckSingBoxInstalled() bool {
 	_, err := exec.LookPath("sing-box")
 	return err == nil
 }
 
+// ValidateSingBoxConfig uses the 'sing-box check' command to validate the syntax
+// of the configuration file located at "sing-box-config.json" in the data directory.
 func ValidateSingBoxConfig(dataDir string) error {
 	singBoxPath, err := exec.LookPath("sing-box")
 	if err != nil {
@@ -209,10 +234,16 @@ func ValidateSingBoxConfig(dataDir string) error {
 	return nil
 }
 
-// RestartSingBox restarts the sing-box service. If NO_SYSTEMD is set, it will use pkill and run the command directly.
-// this is useful for local testing without install of the service
+// noSystemd controls whether systemd is used for service management.
+// If the environment variable NO_SYSTEMD is set to any non-empty value,
+// sing-box will be managed directly using pkill and running the command.
+// Otherwise, it assumes systemd is available and uses `systemctl restart sing-box`.
 var noSystemd = os.Getenv("NO_SYSTEMD") != ""
 
+// RestartSingBox restarts the sing-box service.
+// It either uses `systemctl restart sing-box` or, if noSystemd is true,
+// kills any existing sing-box process and starts a new one directly using the
+// configuration file in the data directory.
 func RestartSingBox(dataDir string) error {
 	if noSystemd {
 		singBoxPath, _ := exec.LookPath("sing-box")

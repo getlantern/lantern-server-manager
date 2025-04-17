@@ -8,10 +8,14 @@ import (
 	"os"
 )
 
+// LogLevel is a wrapper around charmbracelet/log.Level to allow
+// parsing log levels directly from command-line arguments using go-arg.
 type LogLevel struct {
 	log.Level
 }
 
+// UnmarshalText implements the encoding.TextUnmarshaler interface for LogLevel.
+// This allows go-arg to parse log level strings (e.g., "debug", "info", "error").
 func (ll *LogLevel) UnmarshalText(b []byte) error {
 	l, err := log.ParseLevel(string(b))
 	if err != nil {
@@ -21,6 +25,7 @@ func (ll *LogLevel) UnmarshalText(b []byte) error {
 	return nil
 }
 
+// args holds the command-line arguments parsed by go-arg.
 var args struct {
 	LogLevel LogLevel `arg:"-l,--log-level" help:"set log level" default:"info"`
 	DataDir  string   `arg:"-d" help:"data directory" default:"./data"`
@@ -31,6 +36,9 @@ var args struct {
 	Init  *InitCmd  `arg:"subcommand:init" help:"generate initial configuration"`
 }
 
+// main is the entry point of the application.
+// It parses command-line arguments, sets the log level, ensures the data directory exists,
+// and dispatches execution to the appropriate subcommand (serve or init).
 func main() {
 	var err error
 	p := arg.MustParse(&args)
@@ -54,6 +62,9 @@ func main() {
 	}
 }
 
+// ensureDataDirectoryExists checks if the data directory specified by args.DataDir exists.
+// If it doesn't exist, it creates the directory with 0755 permissions.
+// If the path exists but is not a directory, it logs a fatal error.
 func ensureDataDirectoryExists() {
 	if fi, err := os.Stat(args.DataDir); err != nil {
 		if os.IsNotExist(err) {

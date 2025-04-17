@@ -18,7 +18,13 @@ import (
 	"time"
 )
 
-// Certificate returns a self-signed x509 certificate and private key.
+// Certificate generates or loads a self-signed TLS certificate and private key.
+// It first attempts to read "cert.pem" and "key.pem" from the specified dataDir.
+// If the files don't exist, it generates a new RSA 2048-bit key pair and a
+// self-signed certificate valid only for the given IP address. The certificate
+// is intentionally created with an immediate expiration time, making it suitable
+// only for contexts where validation is skipped or customized.
+// The generated PEM-encoded certificate and key are returned.
 func Certificate(dataDir, ip string) (tls.Certificate, error) {
 	certPEM, _ := os.ReadFile(path.Join(dataDir, "cert.pem"))
 	keyPEM, _ := os.ReadFile(path.Join(dataDir, "key.pem"))

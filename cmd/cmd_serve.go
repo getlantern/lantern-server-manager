@@ -12,11 +12,16 @@ import (
 	"github.com/getlantern/lantern-server-manager/common"
 )
 
+// ServeCmd defines the structure for the 'serve' subcommand.
+// It holds the loaded server and sing-box configurations.
 type ServeCmd struct {
 	serverConfig  *common.ServerConfig
 	singboxConfig *option.Options
 }
 
+// readConfigs loads the server and sing-box configurations from the data directory.
+// If the server configuration doesn't exist, it initializes both configurations.
+// It validates the loaded or initialized sing-box config and restarts the sing-box service.
 func (c *ServeCmd) readConfigs() error {
 	var err error
 	c.serverConfig, err = common.ReadServerConfig(args.DataDir)
@@ -43,6 +48,10 @@ func (c *ServeCmd) readConfigs() error {
 	return nil
 }
 
+// Run executes the 'serve' subcommand logic.
+// It checks if sing-box is installed, reads configurations, prints the root token,
+// attempts to open firewall ports, starts a background connectivity check,
+// sets up HTTP API endpoints, and starts the HTTPS server.
 func (c *ServeCmd) Run() error {
 	if !common.CheckSingBoxInstalled() {
 		return fmt.Errorf("sing-box not found in PATH")
@@ -72,6 +81,9 @@ func (c *ServeCmd) Run() error {
 	return auth.SelfSignedListenAndServeTLS(args.DataDir, c.serverConfig.ExternalIP, fmt.Sprintf(":%d", c.serverConfig.Port), srv)
 }
 
+// getConnectConfigHandler handles requests for generating sing-box client configurations.
+// It uses the username from the request context (validated by middleware) to generate
+// a tailored configuration including the necessary credentials.
 func (c *ServeCmd) getConnectConfigHandler(writer http.ResponseWriter, r *http.Request) {
 	cfg, err := common.GenerateSingBoxConnectConfig(args.DataDir, c.serverConfig.ExternalIP, auth.GetRequestUsername(r))
 	if err != nil {
@@ -83,8 +95,11 @@ func (c *ServeCmd) getConnectConfigHandler(writer http.ResponseWriter, r *http.R
 	_, _ = writer.Write(cfg)
 }
 
+// ShareLinkExpiration defines the validity duration for generated share links (access tokens).
 const ShareLinkExpiration = 24 * time.Hour
 
+// getShareLinkHandler handles requests to generate a temporary access token (share link) for a user.
+// This endpoint is admin-only. It extracts the username from the URL path.
 func (c *ServeCmd) getShareLinkHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.PathValue("name")
 	accessToken, err := auth.GenerateAccessToken(c.serverConfig.HMACSecret, username, time.Now().Add(ShareLinkExpiration))
@@ -97,6 +112,9 @@ func (c *ServeCmd) getShareLinkHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(fmt.Sprintf(`{"token": "%s"}`, accessToken)))
 }
 
+// revokeAccess handles requests to revoke access for a specific user.
+// This endpoint is admin-only. It extracts the username from the URL path
+// and calls common.RevokeUser to remove the user from the sing-box config.
 func (c *ServeCmd) revokeAccess(w http.ResponseWriter, r *http.Request) {
 	username := r.PathValue("name")
 	if err := common.RevokeUser(args.DataDir, username); err != nil {
@@ -108,6 +126,8 @@ func (c *ServeCmd) revokeAccess(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(fmt.Sprintf(`{"status": "ok"}`)))
 }
 
+// healthCheckHandler provides a simple health check endpoint.
+// It returns a JSON response indicating the server is running.
 func (c *ServeCmd) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"status": "ok"}`))

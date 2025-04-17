@@ -12,9 +12,12 @@ import (
 	"time"
 )
 
-// CheckConnectivity checks the connectivity to the server via it's public ExternalIP and port.
+// CheckConnectivity periodically checks the health endpoint of the server using its public IP and port.
+// It runs in a loop, making requests every minute with jitter.
+// It uses an HTTP client configured to skip TLS verification, suitable for self-signed certificates.
+// Errors during the check are logged.
 func CheckConnectivity(ip string, port int) {
-	time.Sleep(1 * time.Second)
+	time.Sleep(1 * time.Second) // Initial delay before the first check
 	ticker := jitter.NewTicker(time.Minute, 0.2)
 	defer ticker.Stop()
 	client := http.Client{
@@ -35,7 +38,9 @@ func CheckConnectivity(ip string, port int) {
 	}
 }
 
-// GetPublicIP fetches the public ExternalIP address of the server by trying a list of known services.
+// GetPublicIP attempts to determine the server's public IP address by querying several external services.
+// It iterates through a predefined list of "what's my IP" services and returns the first successful result.
+// If all attempts fail, it returns an error.
 func GetPublicIP() (string, error) {
 	hostsToTry := []string{
 		"https://icanhazip.com/",
