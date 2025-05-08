@@ -45,7 +45,7 @@ func (c *ServerConfig) GetQR() string {
 }
 
 // ReadServerConfig reads the server configuration from the "server.json" file
-// located in the specified data directory. It unmarshals the JSON data into a
+// located in the specified data directory. It unmarshalls the JSON data into a
 // ServerConfig struct and performs basic validation.
 func ReadServerConfig(dataDir string) (*ServerConfig, error) {
 	data, err := os.ReadFile(path.Join(dataDir, "server.json"))

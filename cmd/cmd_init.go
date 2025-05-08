@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/charmbracelet/log"
-	"github.com/sagernet/sing-box/option"
 	"os"
 	"os/exec"
+
+	"github.com/charmbracelet/log"
+	"github.com/sagernet/sing-box/option"
 
 	"github.com/getlantern/lantern-server-manager/common"
 )

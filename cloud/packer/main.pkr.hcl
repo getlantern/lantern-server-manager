@@ -58,9 +58,9 @@ source "amazon-ebs" "amazon-linux" {
 
 build {
   sources = [
-    # "source.amazon-ebs.amazon-linux",
+     "source.amazon-ebs.amazon-linux",
     # "source.digitalocean.nyc1",
-    "source.googlecompute.ubuntu",
+    # "source.googlecompute.ubuntu",
   ]
 
   provisioner "shell-local" {

@@ -29,7 +29,7 @@ func ReadSingBoxServerConfig(dataDir string) (*option.Options, error) {
 	if err != nil {
 		return nil, err
 	}
-	globalCtx := box.Context(context.Background(), include.InboundRegistry(), include.OutboundRegistry(), include.EndpointRegistry(), include.DNSTransportRegistry())
+	globalCtx := box.Context(context.Background(), include.InboundRegistry(), include.OutboundRegistry(), include.EndpointRegistry())
 
 	opt, err := singJson.UnmarshalExtendedContext[option.Options](globalCtx, data)
 	if err != nil {
@@ -165,7 +165,19 @@ func WriteSingBoxServerConfig(dataDir string, opt *option.Options) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path.Join(dataDir, "sing-box-config.json"), data, 0644)
+	if err = os.WriteFile(path.Join(dataDir, "sing-box-config.json"), data, 0644); err != nil {
+		return err
+	}
+	if !noSystemd {
+		// in systemd mode, sing-box-extensions expects the config to be in /etc/sing-box-extensions/config.json
+		// make sure that the path exists and copy the config
+		if err = os.MkdirAll("/etc/sing-box-extensions", 0755); err != nil {
+			return err
+		}
+		return os.WriteFile("/etc/sing-box-extensions/config.json", data, 0644)
+	}
+	// in non-systemd mode, we just write the config to the data directory
+	return nil
 }
 
 // makeShadowsocksPassword generates a secure random password suitable for Shadowsocks
@@ -216,14 +228,14 @@ func GenerateBasicSingBoxServerConfig(dataDir string, listenPort int) (*option.O
 
 // CheckSingBoxInstalled checks if the 'sing-box' executable is available in the system's PATH.
 func CheckSingBoxInstalled() bool {
-	_, err := exec.LookPath("sing-box")
+	_, err := exec.LookPath("sing-box-extensions")
 	return err == nil
 }
 
 // ValidateSingBoxConfig uses the 'sing-box check' command to validate the syntax
 // of the configuration file located at "sing-box-config.json" in the data directory.
 func ValidateSingBoxConfig(dataDir string) error {
-	singBoxPath, err := exec.LookPath("sing-box")
+	singBoxPath, err := exec.LookPath("sing-box-extensions")
 	if err != nil {
 		return fmt.Errorf("sing-box not found in PATH: %w", err)
 	}
@@ -246,12 +258,12 @@ var noSystemd = os.Getenv("NO_SYSTEMD") != ""
 // configuration file in the data directory.
 func RestartSingBox(dataDir string) error {
 	if noSystemd {
-		singBoxPath, _ := exec.LookPath("sing-box")
+		singBoxPath, _ := exec.LookPath("sing-box-extensions")
 		// kill process
-		_ = exec.Command("pkill", "-9", "sing-box").Run()
+		_ = exec.Command("pkill", "-9", "sing-box-extensions").Run()
 		// start process
 		return exec.Command(singBoxPath, "run", "--config", path.Join(dataDir, "sing-box-config.json")).Start()
 	} else {
-		return exec.Command("systemctl", "restart", "sing-box").Run()
+		return exec.Command("systemctl", "restart", "sing-box-extensions").Run()
 	}
 }

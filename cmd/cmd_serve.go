@@ -1,8 +1,10 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -12,11 +14,18 @@ import (
 	"github.com/getlantern/lantern-server-manager/common"
 )
 
+//go:embed ca.cert
+var defaultCACert []byte
+
 // ServeCmd defines the structure for the 'serve' subcommand.
 // It holds the loaded server and sing-box configurations.
 type ServeCmd struct {
 	serverConfig  *common.ServerConfig
 	singboxConfig *option.Options
+	caCert        []byte
+
+	SignCertificate     bool   `arg:"--sign-certificate" help:"sign TLS certificate using Lantern API" default:"true"`
+	CustomCACertificate string `arg:"--ca-cert" help:"custom CA certificate file" default:""`
 }
 
 // readConfigs loads the server and sing-box configurations from the data directory.
@@ -24,6 +33,15 @@ type ServeCmd struct {
 // It validates the loaded or initialized sing-box config and restarts the sing-box service.
 func (c *ServeCmd) readConfigs() error {
 	var err error
+	if c.CustomCACertificate != "" {
+		certData, err := os.ReadFile(c.CustomCACertificate)
+		if err != nil {
+			return fmt.Errorf("failed to read custom CA certificate: %w", err)
+		}
+		c.caCert = certData
+	} else {
+		c.caCert = defaultCACert
+	}
 	c.serverConfig, err = common.ReadServerConfig(args.DataDir)
 	if err != nil {
 		// no config found. init
@@ -62,7 +80,6 @@ func (c *ServeCmd) Run() error {
 
 	printRootToken(c.serverConfig, c.singboxConfig)
 	attemptToOpenPorts(c.serverConfig, c.singboxConfig)
-	go common.CheckConnectivity(c.serverConfig.ExternalIP, c.serverConfig.Port)
 	srv := http.NewServeMux()
 	srv.Handle("GET /api/v1/health", http.HandlerFunc(c.healthCheckHandler))
 	srv.Handle("GET /api/v1/connect-config", auth.Middleware(c.serverConfig.HMACSecret, http.HandlerFunc(c.getConnectConfigHandler)))
@@ -78,7 +95,7 @@ func (c *ServeCmd) Run() error {
 		fmt.Fprintf(w, "Welcome to Lantern Server Manager. In future, there will be UI here!")
 	})
 
-	return auth.SelfSignedListenAndServeTLS(args.DataDir, c.serverConfig.ExternalIP, fmt.Sprintf(":%d", c.serverConfig.Port), srv)
+	return auth.ListenAndServeTLS(args.DataDir, c.SignCertificate, c.caCert, c.serverConfig.ExternalIP, c.serverConfig.Port, srv)
 }
 
 // getConnectConfigHandler handles requests for generating sing-box client configurations.

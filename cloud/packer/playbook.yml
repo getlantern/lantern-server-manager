@@ -5,30 +5,15 @@
   become: true
 
   tasks:
-    - name: Add repository for sing-box
+    - name: Add repository for lantern projects
       yum_repository:
-        name: sing-box
-        description: sing-box YUM repo
-        baseurl: https://rpm.sagernet.org/
-        gpgcheck: yes
-        gpgkey: https://sing-box.app/gpg.key
-      when: ansible_os_family == "RedHat"
-        
-    - name: Add repository for lantern-server-manager
-      yum_repository:
-        name: lantern-server-manager
-        description: lantern-server-manager YUM repo
+        name: lantern-projects
+        description: lantern-projects YUM repo
         baseurl: https://getlantern.fury.site/yum/
         gpgcheck: no
       when: ansible_os_family == "RedHat"
         
-    - name: Add deb repository for sing-box
-      apt_repository:
-        state: present
-        repo: deb [trusted=yes] https://deb.sagernet.org/ /
-      when: ansible_os_family == "Debian"
-        
-    - name: Add deb repository for lantern-server-manager
+    - name: Add deb repository for lantern projects
       apt_repository:
         state: present
         repo: deb [trusted=yes] https://apt.fury.io/getlantern/ /
@@ -38,7 +23,7 @@
       package:
         name:
           - lantern-server-manager
-          - sing-box
+          - sing-box-extensions
           - fail2ban
           - firewalld
         state: present

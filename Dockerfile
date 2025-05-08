@@ -4,7 +4,7 @@ FROM alpine:edge
 RUN apk --no-cache add ca-certificates tzdata
 
 COPY lantern-server-manager /app/server
-COPY --from=ghcr.io/sagernet/sing-box /usr/local/bin/sing-box /usr/local/bin/sing-box
+COPY --from=getlantern/sing-box-extensions /sing-box-extensions /usr/local/bin/sing-box-extensions
 
 # Set the entrypoint command
 ENTRYPOINT ["/app/server", "serve"]
