@@ -1,10 +1,8 @@
 package main
 
 import (
-	_ "embed"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -14,18 +12,14 @@ import (
 	"github.com/getlantern/lantern-server-manager/common"
 )
 
-//go:embed ca.cert
-var defaultCACert []byte
-
 // ServeCmd defines the structure for the 'serve' subcommand.
 // It holds the loaded server and sing-box configurations.
 type ServeCmd struct {
 	serverConfig  *common.ServerConfig
 	singboxConfig *option.Options
-	caCert        []byte
 
-	SignCertificate     bool   `arg:"--sign-certificate" help:"sign TLS certificate using Lantern API" default:"true"`
-	CustomCACertificate string `arg:"--ca-cert" help:"custom CA certificate file" default:""`
+	CertPEM string `arg:"--cert" help:"TLS certificate file" default:""`
+	KeyPEM  string `arg:"--key" help:"TLS key file" default:""`
 }
 
 // readConfigs loads the server and sing-box configurations from the data directory.
@@ -33,15 +27,6 @@ type ServeCmd struct {
 // It validates the loaded or initialized sing-box config and restarts the sing-box service.
 func (c *ServeCmd) readConfigs() error {
 	var err error
-	if c.CustomCACertificate != "" {
-		certData, err := os.ReadFile(c.CustomCACertificate)
-		if err != nil {
-			return fmt.Errorf("failed to read custom CA certificate: %w", err)
-		}
-		c.caCert = certData
-	} else {
-		c.caCert = defaultCACert
-	}
 	c.serverConfig, err = common.ReadServerConfig(args.DataDir)
 	if err != nil {
 		// no config found. init
@@ -92,10 +77,10 @@ func (c *ServeCmd) Run() error {
 			http.NotFound(w, req)
 			return
 		}
-		fmt.Fprintf(w, "Welcome to Lantern Server Manager. In future, there will be UI here!")
+		_, _ = fmt.Fprintf(w, "Welcome to Lantern Server Manager. In future, there will be UI here!")
 	})
 
-	return auth.ListenAndServeTLS(args.DataDir, c.SignCertificate, c.caCert, c.serverConfig.ExternalIP, c.serverConfig.Port, srv)
+	return auth.ListenAndServeTLS(args.DataDir, c.CertPEM, c.KeyPEM, c.serverConfig.ExternalIP, c.serverConfig.Port, srv)
 }
 
 // getConnectConfigHandler handles requests for generating sing-box client configurations.
@@ -145,7 +130,7 @@ func (c *ServeCmd) revokeAccess(w http.ResponseWriter, r *http.Request) {
 
 // healthCheckHandler provides a simple health check endpoint.
 // It returns a JSON response indicating the server is running.
-func (c *ServeCmd) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+func (c *ServeCmd) healthCheckHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"status": "ok"}`))
 }
