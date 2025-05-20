@@ -1,8 +1,10 @@
 package common
 
 import (
+	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 )
@@ -14,12 +16,19 @@ func GetPublicIP() (string, error) {
 	hostsToTry := []string{
 		"https://icanhazip.com/",
 		"https://ipinfo.io/ip",
-		"https://domains.google.com/checkip",
 		"https://ifconfig.io",
+	}
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network string, addr string) (net.Conn, error) {
+				return (&net.Dialer{}).DialContext(ctx, "tcp4", addr)
+			},
+		},
 	}
 	// Try each host until one works
 	for _, host := range hostsToTry {
-		resp, err := http.Get(host)
+		resp, err := client.Get(host)
 		if err != nil {
 			continue
 		}
