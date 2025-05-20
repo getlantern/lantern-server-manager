@@ -50,15 +50,7 @@ nfpms:
     license: "GPL"
     contents:
       - src: ./cloud/lantern-server-manager.service
-        dst: /opt/lantern/lantern-server-manager.service
-        file_info:
-          mode: 0600
-          owner: root
-          group: root
-    scripts:
-      postinstall: ./cloud/postinstall
-      preremove: ./cloud/preremove
-      preinstall: ./cloud/preinstall
+        dst: /usr/lib/systemd/system/lantern-server-manager.service
 
 furies:
   - account: getlantern
