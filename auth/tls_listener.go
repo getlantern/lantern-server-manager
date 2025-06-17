@@ -30,6 +30,7 @@ func generateSelfSignedCert(key *rsa.PrivateKey, ip string) ([]byte, error) {
 			CommonName: ip,
 		},
 		NotBefore:   time.Now(),
+		NotAfter:    time.Now().Add(time.Hour * 24 * 365 * 10), // 10 years
 		DNSNames:    []string{ip},
 		KeyUsage:    x509.KeyUsageDigitalSignature,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
