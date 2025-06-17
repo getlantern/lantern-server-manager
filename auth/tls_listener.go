@@ -29,10 +29,7 @@ func generateSelfSignedCert(key *rsa.PrivateKey, ip string) ([]byte, error) {
 		Subject: pkix.Name{
 			CommonName: ip,
 		},
-		// We pre-expire the certs to make them explicitly invalid; they're only
-		// useful in contexts where they are not verified or validated.
 		NotBefore:   time.Now(),
-		NotAfter:    time.Now(),
 		DNSNames:    []string{ip},
 		KeyUsage:    x509.KeyUsageDigitalSignature,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
