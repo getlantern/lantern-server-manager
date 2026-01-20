@@ -2,104 +2,29 @@ package auth
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"math/big"
 	"net/http"
 	"os"
 	"path"
+	"sync/atomic"
 	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/getlantern/lantern-server-manager/common"
+	"github.com/go-acme/lego/v4/certcrypto"
+	"github.com/go-acme/lego/v4/certificate"
+	"github.com/go-acme/lego/v4/challenge/http01"
+	"github.com/go-acme/lego/v4/lego"
+	"github.com/go-acme/lego/v4/registration"
 	"github.com/mroth/jitter"
 )
-
-func generateSelfSignedCert(key *rsa.PrivateKey, ip string) ([]byte, error) {
-	sn, _ := rand.Int(rand.Reader, big.NewInt(1000000000))
-	template := x509.Certificate{
-		SerialNumber: sn,
-		Issuer: pkix.Name{
-			CommonName: ip,
-		},
-		Subject: pkix.Name{
-			CommonName: ip,
-		},
-		NotBefore:   time.Now(),
-		NotAfter:    time.Now().Add(time.Hour * 24 * 365 * 10), // 10 years
-		DNSNames:    []string{ip},
-		KeyUsage:    x509.KeyUsageDigitalSignature,
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-	}
-
-	return x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
-}
-
-// Certificate generates or loads a self-signed TLS certificate and private key.
-// It first attempts to read "cert.pem" and "key.pem" from the specified dataDir.
-// If the files don't exist, it generates a new RSA 2048-bit key pair and a
-// self-signed certificate valid only for the given IP address. The certificate
-// is intentionally created with an immediate expiration time, making it suitable
-// only for contexts where validation is skipped or customized.
-// The generated PEM-encoded certificate and key are returned.
-// If certPEMFile and keyPEMFile are provided, it uses those files instead of generating a new one.
-func Certificate(dataDir, ip, certPEMFile, keyPEMFile string) (tls.Certificate, error) {
-	if certPEMFile != "" && keyPEMFile != "" {
-		certPEM, err := os.ReadFile(certPEMFile)
-		if err != nil {
-			return tls.Certificate{}, err
-		}
-		keyPEM, err := os.ReadFile(keyPEMFile)
-		if err != nil {
-			return tls.Certificate{}, err
-		}
-		return tls.X509KeyPair(certPEM, keyPEM)
-	}
-	certPEM, _ := os.ReadFile(path.Join(dataDir, "cert.pem"))
-	keyPEM, _ := os.ReadFile(path.Join(dataDir, "key.pem"))
-	if keyPEM == nil || certPEM == nil {
-		log.Debug("Generating self-signed certificate")
-		key, err := rsa.GenerateKey(rand.Reader, 2048)
-		if err != nil {
-			return tls.Certificate{}, err
-		}
-
-		certificateBytes, err := generateSelfSignedCert(key, ip)
-		if err != nil {
-			return tls.Certificate{}, err
-		}
-
-		certPEMBuf := new(bytes.Buffer)
-		err = pem.Encode(certPEMBuf, &pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: certificateBytes,
-		})
-		if err != nil {
-			return tls.Certificate{}, err
-		}
-
-		keyPEMBuf := new(bytes.Buffer)
-		err = pem.Encode(keyPEMBuf, &pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(key),
-		})
-		if err != nil {
-			return tls.Certificate{}, err
-		}
-		certPEM = certPEMBuf.Bytes()
-		keyPEM = keyPEMBuf.Bytes()
-		_ = os.WriteFile(path.Join(dataDir, "cert.pem"), certPEMBuf.Bytes(), 0644)
-		_ = os.WriteFile(path.Join(dataDir, "key.pem"), keyPEMBuf.Bytes(), 0644)
-
-	} else {
-		log.Debug("Using existing self-signed certificate")
-	}
-	return tls.X509KeyPair(certPEM, keyPEM)
-}
 
 // CheckConnectivity periodically checks the health endpoint of the server using its public IP and port.
 // It runs in a loop, making requests every minute with jitter.
@@ -128,21 +53,201 @@ func CheckConnectivity(ip string, port int) {
 	}
 }
 
-// ListenAndServeTLS listens on the TCP network address addr and then calls
-// Serve with handler and a self-signed certificate (optionally signed by Lantern) to handle requests on
-// incoming TLS connections.
-func ListenAndServeTLS(dataDir, certPEM, keyPEM string, publicIP string, listenPort int, handler http.Handler) error {
-	cert, err := Certificate(dataDir, publicIP, certPEM, keyPEM)
-	if err != nil {
-		return fmt.Errorf("failed to generate certificate: %w", err)
+var cert atomic.Value // stores *tls.Certificate
+
+// legoUser implements the registration.User interface for ACME registration
+type legoUser struct {
+	Email        string                 `json:"email"`
+	Registration *registration.Resource `json:"registration"`
+	key          crypto.PrivateKey
+}
+
+func (u *legoUser) GetEmail() string                        { return u.Email }
+func (u *legoUser) GetRegistration() *registration.Resource { return u.Registration }
+func (u *legoUser) GetPrivateKey() crypto.PrivateKey        { return u.key }
+
+func loadCert(dataDir, certPEMFile, keyPEMFile string, publicIP string) (*tls.Certificate, error) {
+	// If custom cert/key files are provided, use those directly
+	if certPEMFile != "" && keyPEMFile != "" {
+		log.Debug("Loading custom TLS certificate. Skipping ACME", "cert", certPEMFile, "key", keyPEMFile)
+		certPEM, err := os.ReadFile(certPEMFile)
+		if err != nil {
+			return nil, err
+		}
+		keyPEM, err := os.ReadFile(keyPEMFile)
+		if err != nil {
+			return nil, err
+		}
+		c, err := tls.X509KeyPair(certPEM, keyPEM)
+		return &c, err
 	}
 
+	// Try to load existing ACME certificate
+	acmeCertPath := path.Join(dataDir, "acme_cert.pem")
+	acmeKeyPath := path.Join(dataDir, "acme_key.pem")
+	acmeAccountPath := path.Join(dataDir, "acme_account.json")
+	accountKeyPath := path.Join(dataDir, "acme_account_key.pem")
+
+	// Check if we have a valid existing certificate
+	if certPEM, err := os.ReadFile(acmeCertPath); err == nil {
+		if keyPEM, err := os.ReadFile(acmeKeyPath); err == nil {
+			c, err := tls.X509KeyPair(certPEM, keyPEM)
+			if err == nil {
+				// Check if certificate is still valid (not expired)
+				if c.Leaf == nil {
+					c.Leaf, _ = x509.ParseCertificate(c.Certificate[0])
+				}
+				if c.Leaf != nil && time.Now().Before(c.Leaf.NotAfter.Add(-24*time.Hour)) {
+					log.Debug("Using existing ACME certificate")
+					return &c, nil
+				}
+				log.Debug("ACME certificate expired or expiring soon, renewing...")
+			}
+		}
+	}
+
+	// 1. Create/load account private key
+	var accountKey crypto.PrivateKey
+	if keyPEM, err := os.ReadFile(accountKeyPath); err == nil {
+		accountKey, err = certcrypto.ParsePEMPrivateKey(keyPEM)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse account key: %w", err)
+		}
+		log.Debug("Loaded existing ACME account key")
+	} else {
+		log.Debug("Generating new ACME account key")
+		key, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate account key: %w", err)
+		}
+		accountKey = key
+
+		keyPEMBuf := new(bytes.Buffer)
+		err = pem.Encode(keyPEMBuf, &pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(key),
+		})
+		if err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(accountKeyPath, keyPEMBuf.Bytes(), 0600); err != nil {
+			return nil, fmt.Errorf("failed to save account key: %w", err)
+		}
+	}
+
+	// 2. Create/load user registration
+	user := &legoUser{
+		Email: "admin@thisbox.org",
+		key:   accountKey,
+	}
+
+	if accountData, err := os.ReadFile(acmeAccountPath); err == nil {
+		if err := json.Unmarshal(accountData, user); err != nil {
+			log.Warn("Failed to parse account file, will re-register", "error", err)
+		}
+	}
+
+	// 3. Setup lego client
+	config := lego.NewConfig(user)
+	config.CADirURL = lego.LEDirectoryProduction
+	config.Certificate.KeyType = certcrypto.RSA2048
+	config.Certificate.DisableCommonName = true
+
+	client, err := lego.NewClient(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ACME client: %w", err)
+	}
+
+	common.OpenFirewallPort(80)
+	defer common.CloseFirewallPort(80)
+	// Use HTTP-01 challenge on port 80
+	err = client.Challenge.SetHTTP01Provider(http01.NewProviderServer("", "80"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to set HTTP challenge provider: %w", err)
+	}
+
+	// 4. Register if needed
+	if user.Registration == nil {
+		log.Debug("Registering new ACME account")
+		reg, err := client.Registration.Register(registration.RegisterOptions{
+			TermsOfServiceAgreed: true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to register ACME account: %w", err)
+		}
+		user.Registration = reg
+
+		accountData, err := json.MarshalIndent(user, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(acmeAccountPath, accountData, 0600); err != nil {
+			return nil, fmt.Errorf("failed to save account: %w", err)
+		}
+	}
+
+	// 5. Obtain certificate
+	log.Debug("Obtaining ACME certificate", "domain", publicIP)
+	request := certificate.ObtainRequest{
+		Domains: []string{publicIP},
+		Bundle:  true,
+		Profile: "shortlived",
+	}
+
+	certificates, err := client.Certificate.Obtain(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to obtain certificate: %w", err)
+	}
+
+	// 6. Save certificate and key
+	if err := os.WriteFile(acmeCertPath, certificates.Certificate, 0644); err != nil {
+		return nil, fmt.Errorf("failed to save certificate: %w", err)
+	}
+	if err := os.WriteFile(acmeKeyPath, certificates.PrivateKey, 0600); err != nil {
+		return nil, fmt.Errorf("failed to save private key: %w", err)
+	}
+
+	log.Info("ACME certificate obtained successfully", "domain", publicIP)
+
+	c, err := tls.X509KeyPair(certificates.Certificate, certificates.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func ListenAndServeTLS(dataDir, certPEM, keyPEM string, publicIP string, listenPort int, handler http.Handler) error {
+	c, err := loadCert(dataDir, certPEM, keyPEM, publicIP)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cert.Store(c)
+
 	conf := &tls.Config{
-		Certificates: []tls.Certificate{cert},
+		GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			return cert.Load().(*tls.Certificate), nil
+		},
+		MinVersion: tls.VersionTLS12,
 	}
 
 	go CheckConnectivity(publicIP, listenPort)
+	go keepCertificateFresh(dataDir, certPEM, keyPEM, publicIP)
 	addr := fmt.Sprintf(":%d", listenPort)
 	server := &http.Server{Addr: addr, Handler: handler, TLSConfig: conf}
 	return server.ListenAndServeTLS("", "")
+}
+
+func keepCertificateFresh(dataDir, certPEM, keyPEM string, publicIP string) {
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+	for {
+		<-ticker.C
+		c, err := loadCert(dataDir, certPEM, keyPEM, publicIP)
+		if err != nil {
+			log.Error("Failed to renew certificate", "error", err)
+			continue
+		}
+		cert.Store(c)
+		log.Info("ACME certificate renewed successfully", "domain", publicIP)
+	}
 }

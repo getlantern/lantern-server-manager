@@ -15,7 +15,7 @@ import (
 // ServeCmd defines the structure for the 'serve' subcommand.
 // It holds the loaded server and sing-box configurations.
 type ServeCmd struct {
-	serverConfig  *common.ServerConfig
+	serverConfig  *ServerConfig
 	singboxConfig *option.Options
 
 	CertPEM string `arg:"--cert" help:"TLS certificate file" default:""`
@@ -27,7 +27,7 @@ type ServeCmd struct {
 // It validates the loaded or initialized sing-box config and restarts the sing-box service.
 func (c *ServeCmd) readConfigs() error {
 	var err error
-	c.serverConfig, err = common.ReadServerConfig(args.DataDir)
+	c.serverConfig, err = ReadServerConfig(args.DataDir)
 	if err != nil {
 		// no config found. init
 		c.serverConfig, c.singboxConfig, err = InitializeConfigs()

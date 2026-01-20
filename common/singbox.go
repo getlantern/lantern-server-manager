@@ -228,16 +228,16 @@ func GenerateBasicSingBoxServerConfig(dataDir string, listenPort int) (*option.O
 
 // CheckSingBoxInstalled checks if the 'sing-box' executable is available in the system's PATH.
 func CheckSingBoxInstalled() bool {
-	_, err := exec.LookPath("sing-box-extensions")
+	_, err := exec.LookPath(SingBoxExe)
 	return err == nil
 }
 
 // ValidateSingBoxConfig uses the 'sing-box check' command to validate the syntax
 // of the configuration file located at "sing-box-config.json" in the data directory.
 func ValidateSingBoxConfig(dataDir string) error {
-	singBoxPath, err := exec.LookPath("sing-box-extensions")
+	singBoxPath, err := exec.LookPath(SingBoxExe)
 	if err != nil {
-		return fmt.Errorf("sing-box not found in PATH: %w", err)
+		return fmt.Errorf("'%s' not found in PATH: %w", SingBoxExe, err)
 	}
 	// check for non-zero exit code
 	if err = exec.Command(singBoxPath, "check", "--config", path.Join(dataDir, "sing-box-config.json")).Run(); err != nil {
@@ -252,18 +252,20 @@ func ValidateSingBoxConfig(dataDir string) error {
 // Otherwise, it assumes systemd is available and uses `systemctl restart sing-box`.
 var noSystemd = os.Getenv("NO_SYSTEMD") != ""
 
+const SingBoxExe = "sing-box-extensions"
+
 // RestartSingBox restarts the sing-box service.
 // It either uses `systemctl restart sing-box` or, if noSystemd is true,
 // kills any existing sing-box process and starts a new one directly using the
 // configuration file in the data directory.
 func RestartSingBox(dataDir string) error {
 	if noSystemd {
-		singBoxPath, _ := exec.LookPath("sing-box-extensions")
+		singBoxPath, _ := exec.LookPath(SingBoxExe)
 		// kill process
-		_ = exec.Command("pkill", "-9", "sing-box-extensions").Run()
+		_ = exec.Command("pkill", "-9", SingBoxExe).Run()
 		// start process
 		return exec.Command(singBoxPath, "run", "--config", path.Join(dataDir, "sing-box-config.json")).Start()
-	} else {
-		return exec.Command("systemctl", "restart", "sing-box-extensions").Run()
 	}
+
+	return exec.Command("systemctl", "restart", SingBoxExe).Run()
 }

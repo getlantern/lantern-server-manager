@@ -1,15 +1,17 @@
-package common
+package main
 
 import (
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/mdp/qrterminal/v3"
 	"math/rand/v2"
 	"os"
 	"path"
 	"time"
+
+	"github.com/getlantern/lantern-server-manager/common"
+	"github.com/mdp/qrterminal/v3"
 
 	"github.com/charmbracelet/log"
 	"github.com/sethvargo/go-password/password"
@@ -80,7 +82,7 @@ var AdminExpirationTime = time.Date(2900, 1, 1, 0, 0, 0, 0, time.UTC)
 // very long expiration time, and writes the configuration to "server.json"
 // in the specified data directory.
 func GenerateServerConfig(dataDir string, listenPort int) (*ServerConfig, error) {
-	publicIP, err := GetPublicIP()
+	publicIP, err := common.GetPublicIP()
 	if err != nil {
 		log.Error("Cannot detect your public ExternalIP, please get it from your host provider")
 		publicIP = "0.0.0.0"
