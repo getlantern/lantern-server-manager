@@ -23,7 +23,7 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/charmbracelet/lipgloss v1.0.0 // indirect
 	github.com/charmbracelet/x/ansi v0.4.2 // indirect
-	github.com/cloudflare/circl v1.6.2 // indirect
+	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/cretz/bine v0.2.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.2 // indirect
