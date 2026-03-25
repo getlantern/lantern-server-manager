@@ -1,7 +1,6 @@
 package common
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
 	"math/rand/v2"
@@ -11,8 +10,7 @@ import (
 	"path"
 
 	"github.com/charmbracelet/log"
-	box "github.com/sagernet/sing-box"
-	"github.com/sagernet/sing-box/include"
+	box "github.com/getlantern/lantern-box"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing/common"
 	singJson "github.com/sagernet/sing/common/json"
@@ -29,7 +27,7 @@ func ReadSingBoxServerConfig(dataDir string) (*option.Options, error) {
 	if err != nil {
 		return nil, err
 	}
-	globalCtx := box.Context(context.Background(), include.InboundRegistry(), include.OutboundRegistry(), include.EndpointRegistry())
+	globalCtx := box.BaseContext()
 
 	opt, err := singJson.UnmarshalExtendedContext[option.Options](globalCtx, data)
 	if err != nil {
@@ -252,7 +250,7 @@ func ValidateSingBoxConfig(dataDir string) error {
 // Otherwise, it assumes systemd is available and uses `systemctl restart sing-box`.
 var noSystemd = os.Getenv("NO_SYSTEMD") != ""
 
-const SingBoxExe = "sing-box-extensions"
+const SingBoxExe = "lantern-box"
 
 // RestartSingBox restarts the sing-box service.
 // It either uses `systemctl restart sing-box` or, if noSystemd is true,
