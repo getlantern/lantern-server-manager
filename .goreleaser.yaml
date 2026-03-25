@@ -19,6 +19,17 @@ builds:
       - CGO_ENABLED=1
 
     binary: lantern-server-manager
+    overrides:
+      - goos: linux
+        goarch: arm64
+        env:
+          - CC=aarch64-linux-gnu-gcc
+          - CXX=aarch64-linux-gnu-g+
+      - goos: linux
+        goarch: amd64
+        env:
+          - CC=gcc
+          - CXX=g++
 
 archives:
   - formats: ["tar.gz"]
