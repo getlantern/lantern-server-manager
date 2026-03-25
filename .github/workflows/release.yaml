@@ -24,6 +24,10 @@ jobs:
         with:
           username: getlantern
           password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Install arm64 cross-compiler
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
