@@ -21,6 +21,7 @@ It will allow you to easily set up a server, configure it, and allow to share ac
 ### Docker
 
 When running inside Docker container, we don't want to use random ports, so we need to specify the ports we want to use. 
+We also can't use automatic TLS certificate provisioning with Let's Encrypt, so you need to provider key/cert params.
 
 ```bash
 docker run -d \
@@ -30,7 +31,7 @@ docker run -d \
   -p 8080:8080 \
   -p 1234:1234 \
   -v /path/to/config:/config \
-  getlantern/lantern-server-manager -d /config --vpn-port 1234 --api-port 8080
+  getlantern/lantern-server-manager -d /config --vpn-port 1234 --api-port 8080 --cert /config/cert.pem --key /config/key.pem
 ```
 
 ### Digital Ocean
@@ -54,11 +55,11 @@ gcloud compute firewall-rules create allow-all-to-instance \
     --rules=all \
     --target-tags=allow-all-traffic \
     --source-ranges=0.0.0.0/0
-gcloud compute instances add-tags instance-20250414-160036 --tags=allow-all-traffic     --zone=us-west1-c
+gcloud compute instances add-tags instance-20250414-160036 --tags=allow-all-traffic --zone=us-west1-c
 ``` 
 3. Now you can fetch the initial token
 ```shell
-gcloud compute instances add-tags instance-20250414-160036     --tags=allow-all-traffic     --zone=us-west1-c sudo journalctl -u lantern-server-manager
+gcloud compute instances add-tags instance-20250414-160036 --tags=allow-all-traffic --zone=us-west1-c sudo journalctl -u lantern-server-manager
 ```
 
 ### AWS
@@ -104,6 +105,3 @@ ssh ec2-user@xxxxxxxx sudo journalctl -u lantern-server-manager
 - It's the only key that can be used to manage the server.
 - It's stored in the server's config file and on the phone that scanned the initial QR
 - If that key is lost, the server can no longer be managed and the only way to regain access is to delete the config file and start over.
-
-
-

@@ -1,5 +1,5 @@
 lantern-server-manager:
-	CGO_ENABLED=0 go build -ldflags="-extldflags=-static" -o lantern-server-manager ./cmd/...
+	CGO_ENABLED=1 go build -o lantern-server-manager ./cmd/...
 
 packer:
 	@if [ -z "$(PKR_VAR_aws_secret_key)" ]; then \

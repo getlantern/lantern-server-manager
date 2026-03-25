@@ -16,9 +16,7 @@ builds:
       - amd64
       - arm64
     env:
-      - CGO_ENABLED=0
-    ldflags:
-      - -extldflags=-static
+      - CGO_ENABLED=1
 
     binary: lantern-server-manager
 
