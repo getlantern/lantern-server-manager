@@ -34,12 +34,32 @@
           enabled: true
           state: started
 
+    - name: Reload packaged systemd units and boot-order overrides
+      systemd:
+          daemon_reload: true
+
+    - name: enable firewalld
+      systemd:
+          name: firewalld
+          enabled: true
+          state: started
+
     - name: setup firewalld for port 22 only
       ansible.posix.firewalld:
           service: ssh
           permanent: true
           state: enabled
-          immediate: no
+          immediate: yes
+
+    # Do not initialize the manager in the image: its IP and credentials must
+    # be generated on the final instance, not baked into a shared snapshot.
+    - name: enable manager and proxy for first instance boot
+      systemd:
+          name: '{{ item }}'
+          enabled: true
+      loop:
+          - lantern-server-manager
+          - sing-box-extensions
 
     - name: ensure values are set correctly in sysctl
       ansible.posix.sysctl:

@@ -1,0 +1,32 @@
+# Ubuntu/Debian cloud-init network stage, without Before=sysinit.target.
+# A full override is necessary: systemd drop-ins cannot reset dependencies.
+# Dedicated proxy images must not require network-stage disk setup before
+# sysinit. Recheck this unit against the vendor unit on cloud-init upgrades.
+[Unit]
+Description=Cloud-init: Network Stage
+DefaultDependencies=no
+Wants=cloud-init-local.service
+Wants=sshd-keygen.service
+Wants=sshd.service
+After=cloud-init-local.service
+After=systemd-networkd-wait-online.service
+After=networking.service
+Before=network-online.target
+Before=sshd-keygen.service
+Before=sshd.service
+Before=systemd-user-sessions.service
+Before=shutdown.target
+Conflicts=shutdown.target
+ConditionPathExists=!/etc/cloud/cloud-init.disabled
+ConditionKernelCommandLine=!cloud-init=disabled
+ConditionEnvironment=!KERNEL_CMDLINE=cloud-init=disabled
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/cloud-init init
+RemainAfterExit=yes
+TimeoutSec=0
+StandardOutput=journal+console
+
+[Install]
+WantedBy=cloud-init.target
