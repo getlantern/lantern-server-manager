@@ -43,6 +43,10 @@ func (c *ServeCmd) readConfigs() error {
 	if err = common.ValidateSingBoxConfig(args.DataDir); err != nil {
 		return fmt.Errorf("failed to validate sing-box config: %w", err)
 	}
+	// Also synchronize the service config when upgrading an existing installation.
+	if err = common.WriteSingBoxServerConfig(args.DataDir, c.singboxConfig); err != nil {
+		return fmt.Errorf("failed to write sing-box config: %w", err)
+	}
 
 	if err = common.RestartSingBox(args.DataDir); err != nil {
 		return fmt.Errorf("failed to start sing-box: %w", err)

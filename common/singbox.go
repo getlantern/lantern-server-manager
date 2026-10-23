@@ -167,12 +167,12 @@ func WriteSingBoxServerConfig(dataDir string, opt *option.Options) error {
 		return err
 	}
 	if !noSystemd {
-		// in systemd mode, sing-box-extensions expects the config to be in /etc/sing-box-extensions/config.json
+		// The sing-box-extensions package runs lantern-box with this config path.
 		// make sure that the path exists and copy the config
-		if err = os.MkdirAll("/etc/sing-box-extensions", 0755); err != nil {
+		if err = os.MkdirAll("/etc/lantern-box", 0755); err != nil {
 			return err
 		}
-		return os.WriteFile("/etc/sing-box-extensions/config.json", data, 0644)
+		return os.WriteFile("/etc/lantern-box/config.json", data, 0644)
 	}
 	// in non-systemd mode, we just write the config to the data directory
 	return nil
@@ -247,13 +247,13 @@ func ValidateSingBoxConfig(dataDir string) error {
 // noSystemd controls whether systemd is used for service management.
 // If the environment variable NO_SYSTEMD is set to any non-empty value,
 // sing-box will be managed directly using pkill and running the command.
-// Otherwise, it assumes systemd is available and uses `systemctl restart sing-box`.
+// Otherwise, it assumes systemd is available and restarts sing-box-extensions.
 var noSystemd = os.Getenv("NO_SYSTEMD") != ""
 
 const SingBoxExe = "lantern-box"
 
 // RestartSingBox restarts the sing-box service.
-// It either uses `systemctl restart sing-box` or, if noSystemd is true,
+// It either uses `systemctl restart sing-box-extensions` or, if noSystemd is true,
 // kills any existing sing-box process and starts a new one directly using the
 // configuration file in the data directory.
 func RestartSingBox(dataDir string) error {
@@ -265,5 +265,5 @@ func RestartSingBox(dataDir string) error {
 		return exec.Command(singBoxPath, "run", "--config", path.Join(dataDir, "sing-box-config.json")).Start()
 	}
 
-	return exec.Command("systemctl", "restart", SingBoxExe).Run()
+	return exec.Command("systemctl", "restart", "sing-box-extensions.service").Run()
 }

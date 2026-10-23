@@ -101,6 +101,21 @@ ssh ec2-user@xxxxxxxx sudo journalctl -u lantern-server-manager
 
 ## Notes
 
+- The Debian package includes a cloud-init ordering override for dedicated proxy
+  servers, including the provisioner's Ubuntu 22.04 instances. It removes
+  `cloud-init.service`'s `Before=sysinit.target` ordering to break the boot cycle
+  with firewalld, without allowing networking to start before the firewall.
+  Other network-stage ordering is retained; the override is not shipped in RPMs.
+  These servers must not depend on cloud-init's network-stage disk/filesystem
+  setup completing before system initialization. Custom images that need that
+  behavior require a different firewall/boot design. A full unit override is
+  necessary because systemd drop-ins cannot reset ordering dependencies.
+  Recheck `/etc/systemd/system/cloud-init.service` against the vendor unit when
+  upgrading cloud-init; existing local overrides are preserved by packaging.
+- The proxy executable is `lantern-box`, but the package and systemd unit are
+  named `sing-box-extensions`. Its service reads `/etc/lantern-box/config.json`;
+  the manager synchronizes that file from its data directory on startup and
+  whenever the VPN configuration changes.
 - The "root" access key is the one that is generated when the server is started.
 - It's the only key that can be used to manage the server.
 - It's stored in the server's config file and on the phone that scanned the initial QR

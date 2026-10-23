@@ -1,7 +1,8 @@
 [Unit]
 Description=Lantern Server Manager
 Documentation=https://github.com/getlantern/lantern-server-manager
-After=syslog.target network.target remote-fs.target nss-lookup.target
+Wants=network-online.target firewalld.service
+After=syslog.target network-online.target remote-fs.target nss-lookup.target firewalld.service
 
 [Service]
 User=root

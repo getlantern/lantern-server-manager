@@ -60,6 +60,10 @@ nfpms:
     contents:
       - src: ./cloud/lantern-server-manager.service
         dst: /usr/lib/systemd/system/lantern-server-manager.service
+      - src: ./cloud/cloud-init.service
+        dst: /etc/systemd/system/cloud-init.service
+        type: config|noreplace
+        packager: deb
 
 furies:
   - account: getlantern
