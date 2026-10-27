@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"net/url"
 	"os"
 	"path"
+	"strconv"
 	"time"
 
 	"github.com/getlantern/lantern-server-manager/common"
@@ -32,9 +34,16 @@ type ServerConfig struct {
 }
 
 // GetNewServerURL generates the URL used by the Lantern VPN app to configure a new private server.
-// It includes the server's external IP, API port, and the admin access token.
+// It includes the server's external IP, API port, the admin access token, and the token's
+// expiration as a Unix timestamp; the app rejects private-server links without exp.
 func (c *ServerConfig) GetNewServerURL() string {
-	return fmt.Sprintf("lantern://new-private-server?ip=%s&port=%d&token=%s", c.ExternalIP, c.Port, c.AccessToken)
+	q := url.Values{}
+	q.Set("ip", c.ExternalIP)
+	q.Set("port", strconv.Itoa(c.Port))
+	q.Set("token", c.AccessToken)
+	q.Set("exp", strconv.FormatInt(AdminExpirationTime.Unix(), 10))
+	u := url.URL{Scheme: "lantern", Host: "private-server", RawQuery: q.Encode()}
+	return u.String()
 }
 
 // GetQR generates a string representation of a QR code for the server URL.
