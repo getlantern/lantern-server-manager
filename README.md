@@ -27,7 +27,7 @@ We also can't use automatic TLS certificate provisioning with Let's Encrypt, so 
 docker run -d \
   --name lantern-server-manager \
   -e NO_FIREWALLD=true \
-  -e NO_SYSTEMD=true
+  -e NO_SYSTEMD=true \
   -p 8080:8080 \
   -p 1234:1234 \
   -v /path/to/config:/config \
