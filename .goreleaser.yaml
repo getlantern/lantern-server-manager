@@ -80,6 +80,8 @@ dockers_v2:
     platforms:
       - linux/amd64
       - linux/arm64
+    extra_files:
+      - cloud/lantern-packages.asc
 
 dockerhub:
   - images:
