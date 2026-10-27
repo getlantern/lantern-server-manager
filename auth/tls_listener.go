@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -36,20 +37,31 @@ func CheckConnectivity(ip string, port int) {
 	defer ticker.Stop()
 
 	client := http.Client{
+		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
 			},
 		},
 	}
+	healthURL := fmt.Sprintf("https://%s:%d/api/v1/health", ip, port)
 	for {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("https://%s:%d/api/v1/health", ip, port), nil)
-
-		_, err := client.Do(req)
-		if err != nil {
-			log.Errorf("Connectivity check failed. Please check the configuration, make sure that port %d is open. Error: %v", port, err)
-		}
+		checkHealth(&client, healthURL, port)
 		<-ticker.C
+	}
+}
+
+func checkHealth(client *http.Client, healthURL string, port int) {
+	resp, err := client.Get(healthURL)
+	if err != nil {
+		log.Errorf("Connectivity check failed. Please check the configuration, make sure that port %d is open. Error: %v", port, err)
+		return
+	}
+	// Draining the body lets the transport reuse the connection instead of opening a new one per check.
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		log.Errorf("Connectivity check failed: health endpoint returned status %d", resp.StatusCode)
 	}
 }
 
