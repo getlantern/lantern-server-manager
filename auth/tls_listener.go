@@ -51,6 +51,8 @@ func CheckConnectivity(ip string, port int) {
 	}
 }
 
+// checkHealth performs one request to the health endpoint and logs any failure.
+// It always drains and closes the response body.
 func checkHealth(client *http.Client, healthURL string, port int) {
 	resp, err := client.Get(healthURL)
 	if err != nil {
@@ -58,8 +60,12 @@ func checkHealth(client *http.Client, healthURL string, port int) {
 		return
 	}
 	// Draining the body lets the transport reuse the connection instead of opening a new one per check.
-	_, _ = io.Copy(io.Discard, resp.Body)
+	_, err = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
+	if err != nil {
+		log.Errorf("Connectivity check failed: reading health endpoint response: %v", err)
+		return
+	}
 	if resp.StatusCode != http.StatusOK {
 		log.Errorf("Connectivity check failed: health endpoint returned status %d", resp.StatusCode)
 	}
