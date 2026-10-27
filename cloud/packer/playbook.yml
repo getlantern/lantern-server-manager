@@ -13,10 +13,28 @@
         gpgcheck: no
       when: ansible_os_family == "RedHat"
         
+    - name: Create apt keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      when: ansible_os_family == "Debian"
+
+    - name: Install signing key for lantern projects deb repository
+      copy:
+        src: ../lantern-packages.asc
+        dest: /etc/apt/keyrings/lantern-packages.asc
+        owner: root
+        group: root
+        mode: '0644'
+      when: ansible_os_family == "Debian"
+
     - name: Add deb repository for lantern projects
       apt_repository:
         state: present
-        repo: deb [trusted=yes] https://apt.fury.io/getlantern/ /
+        repo: deb [signed-by=/etc/apt/keyrings/lantern-packages.asc] https://apt.fury.io/getlantern/ /
       when: ansible_os_family == "Debian"
 
     - name: install packages

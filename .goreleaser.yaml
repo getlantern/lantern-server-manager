@@ -71,10 +71,17 @@ furies:
       - deb
       - rpm
 
-dockers:
-  - image_templates:
-      - "getlantern/lantern-server-manager:latest"
-      - "getlantern/lantern-server-manager:{{ .Tag }}"
+dockers_v2:
+  - images:
+      - "getlantern/lantern-server-manager"
+    tags:
+      - "{{ .Tag }}"
+      - "latest"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    extra_files:
+      - cloud/lantern-packages.asc
 
 dockerhub:
   - images:
